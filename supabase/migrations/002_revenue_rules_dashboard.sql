@@ -85,7 +85,7 @@ begin
    select * from parsed where d is not null and code is not null and amount >= 0
  ), heads as (
    insert into public.revenue_heads(code,description,level)
-   select distinct code,coalesce(descr,code),greatest(1,least(4,length(code)-1))
+   select distinct code,coalesce(descr,code),3
    from valid on conflict(code) do nothing
  ), ins as (
    insert into public.revenue_daily(collection_date,revenue_head_id,revenue_description,collection_amount,upload_id)
@@ -175,7 +175,7 @@ begin
      coalesce(sum(collection_amount) filter(where collection_date=last_day),0) latest
    from kept
  ),
- targets as (select coalesce(sum(target_amount),0) v from public.monthly_targets where fiscal_year=fy and fiscal_month<=(select fiscal_month from public.fiscal_calendar where gregorian_date=last_day)),
+ targets as (select coalesce(sum(t.target_amount),0) v from public.monthly_targets t where t.fiscal_year=fy and t.fiscal_month<=(select fiscal_month from public.fiscal_calendar where gregorian_date=last_day) and (t.revenue_head_id is null or not exists(select 1 from public.revenue_classification_rules q where q.is_active and q.action='omit' and t.revenue_head_id like q.code_prefix||'%'))),
  daily as (select jsonb_agg(jsonb_build_object('date',d,'amount',v) order by d) v from (select collection_date d,sum(collection_amount) v from kept group by collection_date order by collection_date desc limit 90) z),
  cats as (select jsonb_agg(jsonb_build_object('name',category,'amount',v) order by v desc) v from (select category,sum(collection_amount) v from kept group by category order by v desc limit 12) z),
  topheads as (select coalesce(jsonb_agg(jsonb_build_object('code',code,'description',description,'category',category,'amount',amount) order by amount desc),'[]'::jsonb) v from (select revenue_head_id code,max(description) description,max(category) category,sum(collection_amount) amount from kept group by revenue_head_id order by sum(collection_amount) desc limit 15) z),
