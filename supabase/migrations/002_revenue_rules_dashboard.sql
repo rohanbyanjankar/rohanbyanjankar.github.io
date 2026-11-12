@@ -19,6 +19,7 @@ create policy "classification rules read" on public.revenue_classification_rules
 drop policy if exists "classification rules admin write" on public.revenue_classification_rules;
 create policy "classification rules admin write" on public.revenue_classification_rules for all to authenticated using (public.is_admin()) with check (public.is_admin());
 grant select on public.revenue_classification_rules to authenticated;
+grant insert,update,delete on public.fiscal_calendar to authenticated;
 grant insert,update,delete on public.revenue_classification_rules to authenticated;
 grant usage,select on sequence public.revenue_classification_rules_id_seq to authenticated;
 
@@ -88,7 +89,7 @@ begin
    from valid on conflict(code) do nothing
  ), ins as (
    insert into public.revenue_daily(collection_date,revenue_head_id,revenue_description,collection_amount,upload_id)
-   select d,code,descr,amount,p_upload_id from valid
+   select d,code,descr,amount,p_upload_id from valid cross join (select count(*) from heads) dependency
    on conflict(collection_date,revenue_head_id) do nothing returning 1
  ) select count(*) into n from ins;
  select count(*) into bad from jsonb_array_elements(p_rows) v
@@ -120,6 +121,7 @@ begin
    select c.fiscal_month,r.revenue_head_id,sum(r.collection_amount) actual
    from public.revenue_daily r join public.fiscal_calendar c on c.gregorian_date=r.collection_date
    where c.fiscal_year=prev and (p_revenue_head_id is null or r.revenue_head_id=p_revenue_head_id)
+     and not exists(select 1 from public.revenue_classification_rules q where q.is_active and q.action='omit' and r.revenue_head_id like q.code_prefix||'%')
    group by c.fiscal_month,r.revenue_head_id
  ), up as (
    insert into public.monthly_targets(fiscal_year,fiscal_month,revenue_head_id,previous_year_actual,growth_percent,target_amount,is_override,updated_by)
