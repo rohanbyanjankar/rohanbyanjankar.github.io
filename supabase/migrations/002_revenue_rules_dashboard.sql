@@ -179,11 +179,12 @@ begin
  daily as (select jsonb_agg(jsonb_build_object('date',d,'amount',v) order by d) v from (select collection_date d,sum(collection_amount) v from kept group by collection_date order by collection_date desc limit 90) z),
  cats as (select jsonb_agg(jsonb_build_object('name',category,'amount',v) order by v desc) v from (select category,sum(collection_amount) v from kept group by category order by v desc limit 12) z),
  topheads as (select coalesce(jsonb_agg(jsonb_build_object('code',code,'description',description,'category',category,'amount',amount) order by amount desc),'[]'::jsonb) v from (select revenue_head_id code,max(description) description,max(category) category,sum(collection_amount) amount from kept group by revenue_head_id order by sum(collection_amount) desc limit 15) z),
- monthly as (select jsonb_agg(jsonb_build_object('month',m,'amount',coalesce(v,0)) order by m) v from generate_series(1,12) as gs(m) left join (select c.fiscal_month m,sum(k.collection_amount) v from kept k join public.fiscal_calendar c on c.gregorian_date=k.collection_date group by c.fiscal_month) x using(m))
+ monthly as (select jsonb_agg(jsonb_build_object('month',m,'amount',coalesce(v,0)) order by m) v from generate_series(1,12) as gs(m) left join (select c.fiscal_month m,sum(k.collection_amount) v from kept k join public.fiscal_calendar c on c.gregorian_date=k.collection_date group by c.fiscal_month) x using(m)),
+ daily_fiscal as (select jsonb_agg(jsonb_build_object('day',fiscal_day,'amount',amount) order by fiscal_day) v from (select c.fiscal_day,sum(k.collection_amount) amount from kept k join public.fiscal_calendar c on c.gregorian_date=k.collection_date group by c.fiscal_day) z)
  select jsonb_build_object('ready',true,'fiscal_year',fy,'previous_fiscal_year',prev,'as_of',last_day,'first_day',first_day,'nepali_date',(select nepali_date from public.fiscal_calendar where gregorian_date=last_day),'fiscal_month',(select fiscal_month from public.fiscal_calendar where gregorian_date=last_day),'fiscal_day',last_fiscal_day,
  'latest_day',(select latest from kpi),'ytd',(select ytd from kpi),'target_ytd',(select v from targets),'achievement',case when (select v from targets)>0 then round((select ytd from kpi)/(select v from targets)*100,2) else null end,
  'prior_ytd',(select v from prior),'yoy_growth',case when coalesce((select v from prior),0)>0 then round(((select ytd from kpi)/(select v from prior)-1)*100,2) else null end,
- 'daily',(select v from daily),'composition',(select v from cats),'top_heads',(select v from topheads),'monthly',(select v from monthly)) into outj;
+ 'daily',(select v from daily),'daily_fiscal',(select v from daily_fiscal),'composition',(select v from cats),'top_heads',(select v from topheads),'monthly',(select v from monthly)) into outj;
  return outj;
 end $$;
 revoke all on function public.get_revenue_dashboard(text) from public,anon;
