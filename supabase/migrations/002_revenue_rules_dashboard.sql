@@ -173,7 +173,7 @@ begin
  targets as (select coalesce(sum(target_amount),0) v from public.monthly_targets where fiscal_year=fy and fiscal_month<=(select fiscal_month from public.fiscal_calendar where gregorian_date=last_day)),
  daily as (select jsonb_agg(jsonb_build_object('date',d,'amount',v) order by d) v from (select collection_date d,sum(collection_amount) v from kept group by collection_date order by collection_date desc limit 90) z),
  cats as (select jsonb_agg(jsonb_build_object('name',category,'amount',v) order by v desc) v from (select category,sum(collection_amount) v from kept group by category order by v desc limit 12) z),
- topheads as (select jsonb_agg(jsonb_build_object('code',revenue_head_id,'description',max(description),'category',max(category),'amount',sum(collection_amount)) order by sum(collection_amount) desc) v from kept group by revenue_head_id order by sum(collection_amount) desc limit 15),
+ topheads as (select coalesce(jsonb_agg(jsonb_build_object('code',code,'description',description,'category',category,'amount',amount) order by amount desc),'[]'::jsonb) v from (select revenue_head_id code,max(description) description,max(category) category,sum(collection_amount) amount from kept group by revenue_head_id order by sum(collection_amount) desc limit 15) z),
  monthly as (select jsonb_agg(jsonb_build_object('month',m,'amount',coalesce(v,0)) order by m) v from generate_series(1,12) m left join (select c.fiscal_month m,sum(k.collection_amount) v from kept k join public.fiscal_calendar c on c.gregorian_date=k.collection_date group by c.fiscal_month) x using(m))
  select jsonb_build_object('ready',true,'fiscal_year',fy,'previous_fiscal_year',prev,'as_of',last_day,'first_day',first_day,'nepali_date',(select nepali_date from public.fiscal_calendar where gregorian_date=last_day),'fiscal_month',(select fiscal_month from public.fiscal_calendar where gregorian_date=last_day),'fiscal_day',last_fiscal_day,
  'latest_day',(select latest from kpi),'ytd',(select ytd from kpi),'target_ytd',(select v from targets),'achievement',case when (select v from targets)>0 then round((select ytd from kpi)/(select v from targets)*100,2) else null end,
@@ -183,3 +183,17 @@ begin
 end $$;
 revoke all on function public.get_revenue_dashboard(text) from public,anon;
 grant execute on function public.get_revenue_dashboard(text) to authenticated;
+
+-- Automatically provision newly authenticated users as viewers. The first administrator is promoted manually.
+create or replace function public.handle_new_auth_user() returns trigger
+language plpgsql security definer set search_path=public as $$
+begin
+ insert into public.profiles(id,display_name,role)
+ values(new.id,coalesce(new.raw_user_meta_data->>'full_name',new.email),'viewer')
+ on conflict(id) do nothing;
+ return new;
+end $$;
+drop trigger if exists on_auth_user_created_profile on auth.users;
+create trigger on_auth_user_created_profile after insert on auth.users
+for each row execute procedure public.handle_new_auth_user();
+grant select,insert,update,delete on public.profiles to authenticated;
