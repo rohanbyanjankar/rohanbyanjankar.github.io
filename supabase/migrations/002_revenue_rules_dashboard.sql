@@ -86,7 +86,7 @@ begin
  ), heads as (
    insert into public.revenue_heads(code,description,level)
    select distinct code,coalesce(descr,code),3
-   from valid on conflict(code) do nothing
+   from valid on conflict(code) do nothing returning code
  ), ins as (
    insert into public.revenue_daily(collection_date,revenue_head_id,revenue_description,collection_amount,upload_id)
    select d,code,descr,amount,p_upload_id from valid cross join (select count(*) from heads) dependency
