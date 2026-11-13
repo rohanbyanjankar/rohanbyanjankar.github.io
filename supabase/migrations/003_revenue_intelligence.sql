@@ -112,12 +112,12 @@ begin
      order by current_amount desc nulls last) v from (select * from head_data order by current_amount desc nulls last limit 100) h
  ),
  kpis as (
-   select coalesce(sum(collection_amount),0) filter(where fiscal_year=fy) net,
-     coalesce(sum(greatest(collection_amount,0)),0) filter(where fiscal_year=fy) gross,
-     coalesce(sum(abs(least(collection_amount,0))),0) filter(where fiscal_year=fy) adjustments,
+   select coalesce(sum(collection_amount) filter(where fiscal_year=fy),0) net,
+     coalesce(sum(greatest(collection_amount,0)) filter(where fiscal_year=fy),0) gross,
+     coalesce(sum(abs(least(collection_amount,0))) filter(where fiscal_year=fy),0) adjustments,
      count(*) filter(where fiscal_year=fy) records,
      count(distinct revenue_head_id) filter(where fiscal_year=fy) active_heads,
-     coalesce(sum(collection_amount),0) filter(where fiscal_year=prev) prior_net
+     coalesce(sum(collection_amount) filter(where fiscal_year=prev),0) prior_net
    from kept
  ),
  concentration as (
