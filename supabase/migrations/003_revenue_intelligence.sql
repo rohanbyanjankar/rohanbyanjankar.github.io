@@ -30,7 +30,7 @@ begin
  select count(*) into bad from jsonb_array_elements(p_rows) v
  where coalesce(v->>'collection_date','') !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
     or coalesce(trim(v->>'revenue_head_id'),'')=''
-    or coalesce(replace(v->>'collection_amount',',',''),'') !~ '^-?[0-9]+(\\.[0-9]+)?$';
+    or coalesce(replace(v->>'collection_amount',',',''),'') !~ '^-?[0-9]+([.][0-9]+)?$';
  dup:=greatest(0,total-n-bad);
  return jsonb_build_object('inserted',n,'duplicates',dup,'invalid',bad);
 end $$;
