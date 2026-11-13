@@ -72,7 +72,7 @@ begin
  ),
  annual as (
    select jsonb_agg(jsonb_build_object('fiscal_year',fiscal_year,'net',net,'gross_positive',gross_positive,'negative_adjustments',negative_adjustments,'observations',observations,'heads',heads) order by split_part(fiscal_year,'/',1)::int) v
-   from (select * from annual_raw order by split_part(fiscal_year,'/',1)::int desc limit 10) a
+   from (select * from annual_raw order by split_part(fiscal_year,'/',1)::int desc) a
  ),
  month_data as (
    select fiscal_month,sum(collection_amount) filter(where fiscal_year=fy) current_amount,
