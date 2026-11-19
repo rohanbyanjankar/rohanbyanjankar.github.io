@@ -117,7 +117,7 @@ async function refreshHeatmap(){
  const fy=$("fySelect").value||activeFY;if(!fy)return;
  const month=Number($("heatMonth").value||1),box=$("revenueHeatmap");box.innerHTML='<div class="empty">Loading daily observations…</div>';
  const {data,error}=await db.rpc("get_executive_monthly_pulse",{p_fiscal_year:fy,p_fiscal_month:month});
- if(error){box.innerHTML='<div class="empty">Monthly pulse unavailable. Apply migration 006. '+esc(error.message)+'</div>';return}
+ if(error){box.innerHTML='<div class="empty">Monthly pulse unavailable. Apply migration 009. '+esc(error.message)+'</div>';return}
  heatPulse=data;renderHeatmap();
 }
 function renderHeatmap(){
