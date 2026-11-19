@@ -209,7 +209,7 @@ function renderAnalyticsForecast(ctx){
  if(eligible.length<2){$("forecastNote").textContent="At least two complete non-COVID historical fiscal years are needed.";makeAnalyticsChart("forecastChart","line",months,[],"forecast");return}
  const shares=months.map((_,m)=>median(eligible.map(y=>y.monthly[m]/y.total))),typicalShare=median(eligible.map(y=>y.monthly.slice(0,last+1).reduce((a,b)=>a+b,0)/y.total)),ytd=vals.slice(0,last+1).reduce((a,b)=>a+b,0),runRate=typicalShare>0?ytd/typicalShare:null;
  const ordered=eligible.slice().sort((a,b)=>a.fiscal_year.localeCompare(b.fiscal_year)),growth=[];
- for(let i=1;i<ordered.length;i++){const g=ordered[i].total/ordered[i-1].total-1;if(Number.isFinite(g)&&g>-.5&&g<1.5)growth.push(g)}
+ for(let i=1;i<ordered.length;i++){const prevYear=Number(String(ordered[i-1].fiscal_year).split("/")[0]),currYear=Number(String(ordered[i].fiscal_year).split("/")[0]);if(currYear-prevYear!==1)continue;const g=ordered[i].total/ordered[i-1].total-1;if(Number.isFinite(g)&&g>-.5&&g<1.5)growth.push(g)}
  const g=median(growth),lastHist=ordered[ordered.length-1],trend=g!==null&&lastHist?lastHist.total*(1+g):null,annual=runRate!==null&&trend!==null?.6*runRate+.4*trend:(runRate??trend);
  if(!(annual>0)){$("forecastNote").textContent="Insufficient historical information for a stable projection.";makeAnalyticsChart("forecastChart","line",months,[],"forecast");return}
  const remain=shares.slice(last+1).reduce((x,y)=>x+(Number.isFinite(y)?y:0),0),residual=Math.max(0,annual-ytd),out=shares.slice(last+1,last+1+horizon).map(s=>remain>0?residual*(s||0)/remain:0),labels=months.slice(0,last+1+out.length),actual=Array(labels.length).fill(null),projected=Array(labels.length).fill(null);
