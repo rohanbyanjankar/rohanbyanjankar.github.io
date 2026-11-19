@@ -228,4 +228,57 @@ async function saveUserRole(id){const newRole=$("userrole-"+id).value;if(id===se
 async function loadAudit(){const {data,error}=await db.from("audit_logs").select("*").order("created_at",{ascending:false}).limit(250);if(error)return toast(error.message);$("auditRows").innerHTML=(data||[]).map(x=>'<tr><td>'+new Date(x.created_at).toLocaleString()+'</td><td>'+esc(x.actor_email||"")+'</td><td>'+esc(x.action)+'</td><td>'+esc(x.entity_type)+'</td><td>'+esc(JSON.stringify(x.details))+'</td></tr>').join("")||'<tr><td colspan="5" class="empty">No audit events.</td></tr>'}
 function exportCsv(name,rows){if(!rows?.length)return toast("No rows to export.");const csv=Papa.unparse(rows);const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href)}
 init();
+</script><script>
+/* Independent authentication fallback. Runs even if the dashboard script fails to initialise. */
+(function(){
+  function attachFallback(){
+    const emailButton=document.getElementById("emailLogin");
+    const googleButton=document.getElementById("googleLogin");
+    const message=document.getElementById("loginMsg");
+    if(!emailButton||!googleButton||!window.supabase)return;
+    if(emailButton.onclick||googleButton.onclick)return;
+    let client;
+    try{
+      client=window.supabase.createClient(
+        "https://subseknorsuwopwozgkv.supabase.co",
+        "sb_publishable_VvyuK_B289x8jSJyBCkyUA_8RWSlyYo",
+        {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}
+      );
+    }catch(error){
+      if(message)message.textContent="Sign-in could not initialise: "+error.message;
+      return;
+    }
+    emailButton.addEventListener("click",async function(){
+      emailButton.disabled=true;emailButton.textContent="Signing in…";
+      try{
+        const email=document.getElementById("loginEmail").value.trim();
+        const password=document.getElementById("loginPassword").value;
+        const {error}=await client.auth.signInWithPassword({email,password});
+        if(error)throw error;
+        if(message)message.textContent="Signed in. Loading your workspace…";
+        const {data}=await client.auth.getSession();
+        if(data.session)location.reload();
+      }catch(error){
+        if(message)message.textContent=error.message||"Sign-in failed.";
+      }finally{
+        emailButton.disabled=false;emailButton.textContent="Sign in securely";
+      }
+    });
+    googleButton.addEventListener("click",async function(){
+      googleButton.disabled=true;googleButton.textContent="Connecting…";
+      try{
+        const {error}=await client.auth.signInWithOAuth({
+          provider:"google",
+          options:{redirectTo:location.origin+location.pathname}
+        });
+        if(error)throw error;
+      }catch(error){
+        if(message)message.textContent="Google sign-in failed: "+(error.message||"Unknown error");
+        googleButton.disabled=false;googleButton.textContent="Continue with Google";
+      }
+    });
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",attachFallback);
+  else attachFallback();
+})();
 </script></body></html>
