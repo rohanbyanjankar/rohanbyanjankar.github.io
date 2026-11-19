@@ -137,7 +137,7 @@ async function refreshExecutiveComparison(){
     const value=metric==="growth"?(growth===null?"—":pct(growth)):formatExecutiveAmount(current,unit);
     return '<td class="right '+(row.kind==="parent"?"parent-value":"")+'">'+value+"</td>";
    }).join("");
-   return '<tr class="'+(row.kind==="parent"?"exec-parent":"exec-child")+'"><td>'+(row.kind==="child"?"<span class="exec-indent">↳ </span>":"")+esc(row.name)+"</td>"+cells+"</tr>";
+   return '<tr class="'+(row.kind==="parent"?"exec-parent":"exec-child")+'"><td>'+(row.kind==="child"?'<span class="exec-indent">↳ </span>':"")+esc(row.name)+"</td>"+cells+"</tr>";
   }).join("")||'<tr><td class="empty">No observations available for the selected years.</td></tr>';
   const note=cutoff?"Common cutoff: "+data.cutoff_date+" · fiscal day "+data.cutoff_fiscal_day:"Common cutoff: latest available observation in "+fy+" ("+data.cutoff_date+") · same fiscal day applied to all years";
   const sub=document.querySelector("#page-overview .executive-card .sub");
