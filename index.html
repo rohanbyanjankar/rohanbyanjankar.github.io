@@ -22,7 +22,7 @@
 <div class="card kpi"><div class="kpi-label">Fiscal YTD collection</div><div class="kpi-value" id="kYtd">—</div><div class="kpi-foot">Classified collections · NPR</div></div>
 <div class="card kpi"><div class="kpi-label">Target achievement</div><div class="kpi-value" id="kAchievement">—</div><div class="kpi-foot">Against cumulative monthly targets</div></div>
 <div class="card kpi"><div class="kpi-label">Year-on-year growth</div><div class="kpi-value" id="kGrowth">—</div><div class="kpi-foot" id="kPrior">Equivalent fiscal day</div></div></div>
-<div class="card executive-card" style="margin-top:14px"><div class="card-head"><div><h3>Five-year revenue comparison</h3><div class="sub">Choose the indicator and revenue category that matter to your briefing.</div></div><div class="controls"><select id="execMetric" aria-label="Comparison measure"><option value="amount">Show: Collection amount</option><option value="growth">Show: Percentage change (YoY)</option></select><select id="execUnit"><option value="npr">NPR</option><option value="billion">Billion</option><option value="arba">Arba</option><option value="kharba">Kharba</option></select><button class="btn ghost" id="execCompareRefresh">Update</button></div></div><div class="tablewrap"><table class="exec-structure-table"><thead id="execCompareHead"></thead><tbody id="execCompareRows"><tr><td class="empty">Loading comparison…</td></tr></tbody></table></div></div>
+<div class="card executive-card" style="margin-top:14px"><div class="card-head"><div><h3>Five-year revenue comparison</h3><div class="sub">Choose the indicator and revenue category that matter to your briefing.</div></div><div class="controls"><select id="execMetric" aria-label="Comparison measure"><option value="amount">Show: Collection amount</option><option value="growth">Show: Percentage change (YoY)</option></select><select id="execUnit"><option value="npr">NPR</option><option value="billion">Billion</option><option value="arba">Arba</option><option value="kharba">Kharba</option></select><input type="date" id="execCutoffDate" title="Optional common fiscal-year cutoff date" aria-label="Common cutoff date"><button class="btn ghost" id="execCompareRefresh">Update</button></div></div><div class="tablewrap"><table class="exec-structure-table"><thead id="execCompareHead"></thead><tbody id="execCompareRows"><tr><td class="empty">Loading comparison…</td></tr></tbody></table></div></div>
 <div class="card executive-card" style="margin-top:14px"><div class="card-head"><div><h3>Daily revenue heatmap</h3><div class="sub">Select a Bikram Sambat month. Each day is shaded by collection intensity. Select a day to inspect category-wise amounts and year-on-year changes.</div></div><div class="controls"><select id="heatMonth"></select><button class="btn ghost" id="heatRefresh">Refresh month</button></div></div><div class="heat-legend"><span>Lower</span><i class="heat-swatch l1"></i><i class="heat-swatch l2"></i><i class="heat-swatch l3"></i><i class="heat-swatch l4"></i><span>Higher collection</span><span class="heat-legend-note">Cell label: BS day · collection · YoY</span></div><div id="revenueHeatmap" class="revenue-heatmap"><div class="empty">Loading daily collection calendar…</div></div><div class="heat-summary" id="heatSummary"></div></div>
 <div class="card" style="margin-top:14px"><div class="card-head"><div><h3>Largest revenue heads</h3><div class="sub">Ranked by current fiscal-year collection</div></div><button class="btn ghost" id="exportTop">Export table</button></div><div class="tablewrap"><table><thead><tr><th>Code</th><th>Revenue head</th><th>Category</th><th class="right">Collection (NPR)</th></tr></thead><tbody id="topRows"><tr><td colspan="4" class="empty">No data loaded</td></tr></tbody></table></div></div>
 </section>
@@ -84,7 +84,7 @@ async function loginEmail(){setBusy($("emailLogin"),true);const {error}=await db
 async function loginGoogle(){setBusy($("googleLogin"),true);const {error}=await db.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+location.pathname}});if(error){setBusy($("googleLogin"),false);showLogin("Google sign-in failed: "+error.message)}}
 async function logout(){await db.auth.signOut()}
 async function boot(s){sessionUser=s.user;const {data:p,error}=await db.from("profiles").select("role,display_name").eq("id",sessionUser.id).maybeSingle();if(error){showLogin("Could not load user profile: "+error.message);return}role=p?.role||"viewer";$("loginView").classList.add("hidden");$("appView").classList.remove("hidden");$("userEmail").textContent=p?.display_name||sessionUser.email;$("roleLabel").textContent=role.toUpperCase()+" ACCESS";document.querySelectorAll("[data-role]").forEach(el=>el.classList.toggle("hidden",!(role==="admin"||(role==="editor"&&el.dataset.role==="editor"))));$("connection").textContent="Database connected";$("connection").className="pill green";wireNavigation();await Promise.all([loadRules(),loadHeads(),loadFiscalYears()]);await refreshDashboard();startDataAutoRefresh();if(role!=="viewer"){await Promise.all([loadTargets(),loadUploads()])}if(role==="admin"){ $("calendarImportCard").classList.remove("hidden"); await Promise.all([loadUsers(),loadAudit()])}else $("calendarImportCard").classList.add("hidden");}
-function wireNavigation(){document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>navigate(b.dataset.page));const map={refreshBtn:refreshDashboard,analyticsRefresh:refreshAnalytics,refreshLatestRecords:loadLatestRecords,exportLatestRecords:exportLatestRecords,headSearch:renderHeads,exportHeads:()=>exportCsv("revenue_heads.csv",heads),exportTop:exportTop,execCompareRefresh:refreshExecutiveViews,heatRefresh:refreshHeatmap,generateTargets:generateTargets,saveAnnual:saveAnnual,validateCsv:validateCsv,importCsv:importCsv,refreshUploads:loadUploads,findDeleteRows:findDeleteRows,deleteSelectedRows:deleteSelectedRevenueRows,importCalendar:importCalendar,addRule:()=>openRule(),closeRule:closeRule,cancelRule:closeRule,saveRule:saveRule,refreshUsers:loadUsers,refreshAudit:loadAudit,exportTargets:exportTargets};Object.entries(map).forEach(([id,fn])=>$(id).onclick=fn);$("fySelect").onchange=async()=>{await refreshDashboard();await refreshExecutiveViews()};$("execMetric").onchange=refreshExecutiveComparison;$("execUnit").onchange=refreshExecutiveComparison;$("heatMonth").onchange=refreshHeatmap;$("closeDayModal").onclick=closeDayDetail;$("dayDetailModal").onclick=e=>{if(e.target.id==="dayDetailModal")closeDayDetail()};document.addEventListener("click",e=>{const dayButton=e.target.closest("[data-heat-day]");if(dayButton){e.preventDefault();openDayDetail(Number(dayButton.dataset.heatDay))}});document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("dayDetailModal").classList.contains("open"))closeDayDetail()});$("analyticsFy").onchange=refreshAnalytics;$("intelFy").onchange=refreshIntelligence;$("intelHeadSearch").oninput=renderIntelHeads;$("exportIntel").onclick=exportIntelHeads;$("exportHeadsIntel").onclick=exportIntelHeads;$("exportCategories").onclick=exportIntelCategories;$("intelRefresh").onclick=refreshIntelligence;$("deleteSelectAll").onchange=e=>{deleteSelectedIds.clear();if(e.target.checked)deleteRowsCache.forEach(x=>deleteSelectedIds.add(String(x.id)));renderDeleteRows()};$("selectAllDeleteRows").onclick=()=>{$("deleteSelectAll").checked=true;$("deleteSelectAll").dispatchEvent(new Event("change"))};$("clearDeleteSelection").onclick=()=>{deleteSelectedIds.clear();renderDeleteRows()};$("deleteRowsBody").onchange=e=>{const c=e.target.closest(".delete-row-check");if(c)changeDeleteSelection(c.dataset.deleteId,c.checked)};$("ruleSearch").oninput=renderRules}
+function wireNavigation(){document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>navigate(b.dataset.page));const map={refreshBtn:refreshDashboard,analyticsRefresh:refreshAnalytics,refreshLatestRecords:loadLatestRecords,exportLatestRecords:exportLatestRecords,headSearch:renderHeads,exportHeads:()=>exportCsv("revenue_heads.csv",heads),exportTop:exportTop,execCompareRefresh:refreshExecutiveViews,heatRefresh:refreshHeatmap,generateTargets:generateTargets,saveAnnual:saveAnnual,validateCsv:validateCsv,importCsv:importCsv,refreshUploads:loadUploads,findDeleteRows:findDeleteRows,deleteSelectedRows:deleteSelectedRevenueRows,importCalendar:importCalendar,addRule:()=>openRule(),closeRule:closeRule,cancelRule:closeRule,saveRule:saveRule,refreshUsers:loadUsers,refreshAudit:loadAudit,exportTargets:exportTargets};Object.entries(map).forEach(([id,fn])=>$(id).onclick=fn);$("fySelect").onchange=async()=>{await refreshDashboard();await refreshExecutiveViews()};$("execMetric").onchange=refreshExecutiveComparison;$("execUnit").onchange=refreshExecutiveComparison;$("execCutoffDate").onchange=refreshExecutiveComparison;$("heatMonth").onchange=refreshHeatmap;$("closeDayModal").onclick=closeDayDetail;$("dayDetailModal").onclick=e=>{if(e.target.id==="dayDetailModal")closeDayDetail()};document.addEventListener("click",e=>{const dayButton=e.target.closest("[data-heat-day]");if(dayButton){e.preventDefault();openDayDetail(Number(dayButton.dataset.heatDay))}});document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("dayDetailModal").classList.contains("open"))closeDayDetail()});$("analyticsFy").onchange=refreshAnalytics;$("intelFy").onchange=refreshIntelligence;$("intelHeadSearch").oninput=renderIntelHeads;$("exportIntel").onclick=exportIntelHeads;$("exportHeadsIntel").onclick=exportIntelHeads;$("exportCategories").onclick=exportIntelCategories;$("intelRefresh").onclick=refreshIntelligence;$("deleteSelectAll").onchange=e=>{deleteSelectedIds.clear();if(e.target.checked)deleteRowsCache.forEach(x=>deleteSelectedIds.add(String(x.id)));renderDeleteRows()};$("selectAllDeleteRows").onclick=()=>{$("deleteSelectAll").checked=true;$("deleteSelectAll").dispatchEvent(new Event("change"))};$("clearDeleteSelection").onclick=()=>{deleteSelectedIds.clear();renderDeleteRows()};$("deleteRowsBody").onchange=e=>{const c=e.target.closest(".delete-row-check");if(c)changeDeleteSelection(c.dataset.deleteId,c.checked)};$("ruleSearch").oninput=renderRules}
 function navigate(name){document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));$("page-"+name).classList.add("active");document.querySelectorAll("[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===name));$("pageTitle").textContent=({overview:"Executive overview",analytics:"Revenue analytics",intelligence:"Fiscal intelligence",heads:"Revenue explorer",records:"Latest revenue records",targets:"Targets & assumptions",uploads:"Data operations",rules:"Classification rules",users:"User administration",audit:"Audit trail"})[name];if(name==="analytics")refreshAnalytics();if(name==="records")loadLatestRecords();if(name==="intelligence")refreshIntelligence();if(name==="rules")renderRules();if(name==="users")loadUsers();if(name==="audit")loadAudit()}
 async function loadFiscalYears(){const {data,error}=await db.from("fiscal_calendar").select("fiscal_year,gregorian_date").order("gregorian_date",{ascending:false}).limit(5000);if(error){$("dataNotice").textContent="Fiscal calendar is not available: "+error.message;return}const years=[...new Set((data||[]).map(x=>x.fiscal_year))];const options=years.map(y=>'<option value="'+esc(y)+'">'+esc(y)+'</option>').join("");$("fySelect").innerHTML='<option value="">Latest fiscal year</option>'+options;$("analyticsFy").innerHTML=options;$("intelFy").innerHTML=options;if(years.length){$("targetFy").value=years[0];$("annualFy").value=years[0];}}
 async function refreshDashboard(){const btn=$("refreshBtn");setBusy(btn,true);const fy=$("fySelect").value||null;const {data,error}=await db.rpc("get_revenue_dashboard",{p_fiscal_year:fy});setBusy(btn,false,"↻ Refresh");if(error){$("dataNotice").textContent="Dashboard query failed: "+error.message;return toast(error.message)}dash=data;if(!data?.ready){$("dataNotice").textContent=data?.message||"Fiscal calendar has not been loaded.";return}activeFY=data.fiscal_year;if(!$("heatMonth").options.length)$("heatMonth").innerHTML=months.map((m,i)=>'<option value="'+(i+1)+'">'+m+'</option>').join("");$("heatMonth").value=String(data.fiscal_month||1);$("asOf").textContent="As of "+data.as_of+" · "+(data.nepali_date||"BS date unavailable")+" · FY "+data.fiscal_year;$("dataNotice").textContent="Live database data · Classified totals exclude revenue heads marked as omitted in Classification Rules.";$("dataNotice").className="notice";$("kLatest").textContent=shortMoney(data.latest_day);$("kLatestDate").textContent=data.as_of+" · NPR";$("kYtd").textContent=shortMoney(data.ytd);$("kAchievement").textContent=data.achievement==null?"—":Number(data.achievement).toFixed(1)+"%";$("kGrowth").textContent=data.yoy_growth==null?"—":(data.yoy_growth>0?"+":"")+Number(data.yoy_growth).toFixed(1)+"%";$("kPrior").textContent=data.prior_ytd?("Prior-year YTD: NPR "+shortMoney(data.prior_ytd)):"Prior-year comparable data unavailable";renderTop(data.top_heads||[]);if($("analyticsFy").options.length)$("analyticsFy").value=data.fiscal_year;await refreshExecutiveViews()}
@@ -108,39 +108,44 @@ function formatExecutiveAmount(value,unit){
  return new Intl.NumberFormat("en-IN",{minimumFractionDigits:digits,maximumFractionDigits:digits}).format(Number(value||0)/scale);
 }
 async function refreshExecutiveComparison(){
- const body=$("execCompareRows");try{
- const fy=$("fySelect").value||activeFY;if(!fy){body.innerHTML='<tr><td class="empty">Select a fiscal year to load comparisons.</td></tr>';return;}
- const years=[...$("fySelect").options].map(o=>o.value).filter(Boolean);
- const start=years.indexOf(fy),chosen=(start<0?[fy]:years.slice(start,start+5));
- const results=await Promise.all(chosen.map(y=>db.rpc("get_revenue_dashboard",{p_fiscal_year:y})));
- execCompareCache=results.map((r,i)=>({fy:chosen[i],data:r.data||{},error:r.error})).filter(x=>x.data.ready);
- const metric=$("execMetric").value,unit=$("execUnit").value;
- const categories=["VAT","Excise","Customs","Income Tax","Unclassified","Interest and Dividends","Royalty"];
- const annual=execCompareCache.map(x=>({fy:x.fy,values:categoryAmounts(x.data.composition)}));
- const rows=[
-  {name:"Tax revenue",key:"Tax revenue",kind:"parent"},
-  {name:"VAT",key:"VAT",kind:"child"},
-  {name:"Excise",key:"Excise",kind:"child"},
-  {name:"Income tax",key:"Income Tax",kind:"child"},
-  {name:"Customs",key:"Customs",kind:"child"},
-  {name:"Unclassified",key:"Unclassified",kind:"child"},
-  {name:"Non-tax revenue",key:"Non-tax revenue",kind:"parent"},
-  {name:"Interest and dividends",key:"Interest and Dividends",kind:"child"},
-  {name:"Royalty",key:"Royalty",kind:"child"}
- ];
- const ordered=annual;
- $("execCompareHead").innerHTML="<tr><th>Revenue heading</th>"+ordered.map(x=>'<th class="right">'+esc(x.fy)+(metric==="growth"?" · YoY":"")+"</th>").join("")+"</tr>";
- $("execCompareRows").innerHTML=rows.map(row=>{
-  const cells=ordered.map((x,i)=>{
-   const current=Number(x.values[row.key]||0);
-   const prior=i<ordered.length-1?Number(ordered[i+1].values[row.key]||0):null;
-   const growth=prior===null?null:growthValue(current,prior);
-   const value=metric==="growth"?(growth===null?"—":pct(growth)):formatExecutiveAmount(current,unit);
-   return '<td class="right '+(row.kind==="parent"?"parent-value":"")+'">'+value+"</td>";
-  }).join("");
-  return '<tr class="'+(row.kind==="parent"?"exec-parent":"exec-child")+'"><td>'+(row.kind==="child"?"<span class=\"exec-indent\">↳ </span>":"")+esc(row.name)+"</td>"+cells+"</tr>";
- }).join("")||'<tr><td colspan="6" class="empty">No observations available for the selected fiscal years.</td></tr>';
- }catch(e){console.error("Executive comparison failed:",e);body.innerHTML='<tr><td class="empty">Comparison could not be loaded: '+esc(e.message||e)+'</td></tr>';}
+ const body=$("execCompareRows");
+ try{
+  const fy=$("fySelect").value||activeFY;
+  if(!fy){body.innerHTML='<tr><td class="empty">Select a fiscal year to load comparisons.</td></tr>';return}
+  const metric=$("execMetric").value,unit=$("execUnit").value;
+  const cutoff=$("execCutoffDate").value||null;
+  const {data,error}=await db.rpc("get_five_year_revenue_comparison",{p_fiscal_year:fy,p_cutoff_date:cutoff});
+  if(error)throw error;
+  const years=data?.years||[];
+  const rows=[
+   {name:"Tax revenue",key:"tax_revenue",kind:"parent"},
+   {name:"VAT",key:"vat",kind:"child"},
+   {name:"Excise",key:"excise",kind:"child"},
+   {name:"Income tax",key:"income_tax",kind:"child"},
+   {name:"Customs",key:"customs",kind:"child"},
+   {name:"Unclassified",key:"unclassified",kind:"child"},
+   {name:"Non-tax revenue",key:"non_tax_revenue",kind:"parent"},
+   {name:"Interest and dividends",key:"interest_dividends",kind:"child"},
+   {name:"Royalty",key:"royalty",kind:"child"}
+  ];
+  $("execCompareHead").innerHTML="<tr><th>Revenue heading</th>"+years.map(x=>'<th class="right">'+esc(x.fiscal_year)+(metric==="growth"?" · YoY":"")+"</th>").join("")+"</tr>";
+  $("execCompareRows").innerHTML=rows.map(row=>{
+   const cells=years.map((x,i)=>{
+    const current=Number(x[row.key]||0);
+    const prior=i<years.length-1?Number(years[i+1][row.key]||0):null;
+    const growth=prior===null?null:growthValue(current,prior);
+    const value=metric==="growth"?(growth===null?"—":pct(growth)):formatExecutiveAmount(current,unit);
+    return '<td class="right '+(row.kind==="parent"?"parent-value":"")+'">'+value+"</td>";
+   }).join("");
+   return '<tr class="'+(row.kind==="parent"?"exec-parent":"exec-child")+'"><td>'+(row.kind==="child"?"<span class="exec-indent">↳ </span>":"")+esc(row.name)+"</td>"+cells+"</tr>";
+  }).join("")||'<tr><td class="empty">No observations available for the selected years.</td></tr>';
+  const note=cutoff?"Common cutoff: "+data.cutoff_date+" · fiscal day "+data.cutoff_fiscal_day:"Common cutoff: latest available observation in "+fy+" ("+data.cutoff_date+") · same fiscal day applied to all years";
+  const sub=document.querySelector("#page-overview .executive-card .sub");
+  if(sub)sub.textContent="Five-year comparison · "+note;
+ }catch(e){
+  console.error("Executive comparison failed:",e);
+  body.innerHTML='<tr><td class="empty">Comparison could not be loaded: '+esc(e.message||e)+'. Check that migration 010 has been applied.</td></tr>';
+ }
 }
 async function refreshHeatmap(){
  const fy=$("fySelect").value||activeFY;if(!fy)return;
