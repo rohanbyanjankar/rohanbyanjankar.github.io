@@ -207,7 +207,7 @@ async function renderAnalyticsTreemap(){
  const root=$("analyticsTreemap");if(!root)return;root.innerHTML="<div class=\"analytics-tree-empty\">Calculating revenue composition…</div>";
  const selected=$("analyticsCategory")?.value||"Total",fy=$("analyticsFy")?.value||activeFY;
  const result=await db.rpc("get_revenue_category_heads",{p_fiscal_year:fy,p_category:selected});
- const rows=(result.error?[]:(result.data||[])).map(x=>({name:x.description||x.code,code:x.code,category:x.category,value:Number(x.current||0)})).filter(x=>x.value>0).sort((a,b)=>b.value-a.value).slice(0,250);
+ const rows=(result.error?[]:(result.data?.heads||[])).map(x=>({name:x.description||x.code,code:x.code,category:x.category,value:Number(x.current||0),share:Number(x.share||0),growth:x.growth===null||x.growth===undefined?null:Number(x.growth),prior:Number(x.prior||0)})).filter(x=>x.value>0).sort((a,b)=>b.value-a.value).slice(0,250);
  if(!rows.length){root.innerHTML="<div class=\"analytics-tree-empty\">No classified revenue-head data for this selection.</div>";return}
  const colors=["#17345b","#c5a15c","#16877b","#5683b9","#8b79a8","#cf8968","#718096","#6b9c8c"],total=rows.reduce((s,x)=>s+x.value,0),tiles=[];
  function split(items,x,y,w,h,depth){
@@ -220,7 +220,7 @@ async function renderAnalyticsTreemap(){
   else{const h1=h*share;split(first,x,y,w,h1,depth+1);split(second,x,y+h1,w,h-h1,depth+1)}
  }
  split(rows,0,0,100,100,0);
- root.innerHTML=tiles.map((t,i)=>{const x=t.item;return "<div class=\"analytics-tree-tile\" style=\"left:"+t.x+"%;top:"+t.y+"%;width:"+t.w+"%;height:"+t.h+"%;background:"+colors[i%colors.length]+"\" title=\""+esc(x.name)+" · "+analyticsAmount(x.value)+" · "+(x.value/total*100).toFixed(1)+"%\"><strong>"+esc(x.name)+"</strong><span>"+analyticsAmount(x.value)+"</span></div>"}).join("");
+ root.innerHTML=tiles.map((t,i)=>{const x=t.item,growth=x.growth===null?"Growth: n/a":("Growth: "+(x.growth>0?"+":"")+x.growth.toFixed(1)+"%");const share="Share: "+x.share.toFixed(1)+"%";const details=analyticsAmount(x.value)+" · "+share+" · "+growth;return "<div class=\\"analytics-tree-tile\\" style=\\"left:"+t.x+"%;top:"+t.y+"%;width:"+t.w+"%;height:"+t.h+"%;background:"+colors[i%colors.length]+"\\" title=\\""+esc(x.name)+" · "+esc(details)+"\\"><strong>"+esc(x.name)+"</strong><span>"+esc(analyticsAmount(x.value))+"</span><small>"+esc(share)+"</small><small>"+esc(growth)+"</small></div>"}).join("");
 }
 
 function populateTreemapLightbox(){
