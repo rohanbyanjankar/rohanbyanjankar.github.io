@@ -250,11 +250,17 @@ async function refreshAnalytics(){
   if(fyStart&&fyEnd)dateQuery=dateQuery.gte("collection_date",fyStart).lte("collection_date",fyEnd);
   const latestQueryResult=await dateQuery;
   if(!latestQueryResult.error)latestCollectionDate=latestQueryResult.data?.[0]?.collection_date||null;
-  const latestDate=latestCollectionDate?cal.find(x=>x.fiscal_year===fy&&x.gregorian_date===latestCollectionDate):cal.find(x=>x.fiscal_year===fy&&Number(x.fiscal_day)===latestObservedDay);
+  let latestDate=latestCollectionDate?cal.find(x=>x.fiscal_year===fy&&x.gregorian_date===latestCollectionDate):cal.find(x=>x.fiscal_year===fy&&Number(x.fiscal_day)===latestObservedDay);
+  if(latestCollectionDate&&!latestDate){
+   const exactCalendarDate=await db.from("fiscal_calendar").select("fiscal_year,fiscal_day,gregorian_date,nepali_date,fiscal_month").eq("gregorian_date",latestCollectionDate).maybeSingle();
+   if(!exactCalendarDate.error&&exactCalendarDate.data)latestDate=exactCalendarDate.data;
+  }
   const displayGregorian=latestCollectionDate||latestDate?.gregorian_date||null;
-  const displayDate=latestDate?.nepali_date||(displayGregorian?new Intl.DateTimeFormat("en-GB",{day:"2-digit",month:"short",year:"numeric",timeZone:"UTC"}).format(new Date(displayGregorian+"T00:00:00Z")):"Date unavailable");
-  $("analyticsDataDate").textContent=displayGregorian?displayDate:"—";
-  $("analyticsDataDateGregorian").textContent=displayGregorian?(latestDate?.nepali_date&&latestDate?.gregorian_date?latestDate.gregorian_date:"Latest database observation (Gregorian date)"):"No reported observations";
+  const bsMonths=["Baishakh","Jestha","Ashadh","Shrawan","Bhadra","Ashwin","Kartik","Mangsir","Poush","Magh","Falgun","Chaitra"];
+  const bsParts=String(latestDate?.nepali_date||"").match(/^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})$/);
+  const nepaliDisplay=bsParts?bsMonths[Number(bsParts[2])-1]+" "+Number(bsParts[3])+", "+bsParts[1]:(latestDate?.nepali_date||"");
+  $("analyticsDataDate").textContent=nepaliDisplay||"Nepali date unavailable";
+  $("analyticsDataDateGregorian").textContent=displayGregorian?("Gregorian date: "+new Intl.DateTimeFormat("en-GB",{day:"2-digit",month:"short",year:"numeric",timeZone:"UTC"}).format(new Date(displayGregorian+"T00:00:00Z"))):"No reported observations";
   const startDate=fyCalendar.find(x=>Number(x.fiscal_day)===1)?.gregorian_date;
   const map=new Map(cal.filter(x=>x.fiscal_year===fy).map(x=>[Number(x.fiscal_day),(x.nepali_date||"")+" · "+x.gregorian_date]));
   const labels=Array.from({length:365},(_,i)=>{const day=i+1;if(map.has(day))return map.get(day);if(startDate){const dt=new Date(startDate+"T00:00:00Z");dt.setUTCDate(dt.getUTCDate()+i);return dt.toISOString().slice(0,10)}return "Fiscal day "+day});
