@@ -236,10 +236,11 @@ function renderAnalyticsForecast(ctx){
  if(partialMonth&&monthStart){
   const fractions=eligible.map(y=>{
    const days=(y.daily||[]).reduce((s,d)=>s+(Number(d.amount)||0),0);
-   const histMap=new Map((ctx.calendar||[]).filter(x=>x.fiscal_year===y.fiscal_year).map(x=>[Number(x.fiscal_day),Number(x.fiscal_month)]));
-   const histMonthDays=(y.daily||[]).filter(d=>histMap.get(Number(d.day))===last+1).sort((x,z)=>Number(x.day)-Number(z.day));
+   const histCalendar=(ctx.calendar||[]).filter(x=>x.fiscal_year===y.fiscal_year&&Number(x.fiscal_month)===last+1).sort((a,b)=>Number(a.fiscal_day)-Number(b.fiscal_day));
+   const histStart=Number(histCalendar[0]?.fiscal_day||0),histEnd=Number(histCalendar[histCalendar.length-1]?.fiscal_day||0);
+   const histMonthDays=(y.daily||[]).filter(d=>Number(d.day)>=histStart&&Number(d.day)<=histEnd);
    const total=histMonthDays.reduce((s,d)=>s+(Number(d.amount)||0),0);
-   const observed=histMonthDays.filter(d=>{const pos=histMonthDays.findIndex(z=>Number(z.day)===Number(d.day));return pos<elapsed}).reduce((s,d)=>s+(Number(d.amount)||0),0);
+   const observed=histMonthDays.filter(d=>Number(d.day)<histStart+elapsed).reduce((s,d)=>s+(Number(d.amount)||0),0);
    return total>0?observed/total:null;
   }).filter(x=>x!==null&&x>0&&x<=1);
   partialShare=median(fractions);
