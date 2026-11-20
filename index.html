@@ -132,7 +132,10 @@ async function refreshExecutiveComparison(){
   if(!fy){body.innerHTML='<tr><td class="empty">Select a fiscal year to load comparisons.</td></tr>';return}
   const metric=$("execMetric").value,unit=$("execUnit").value;
   const cutoff=$("execCutoffDate").value||null;
-  const {data,error}=await db.rpc("get_five_year_revenue_comparison",{p_fiscal_year:fy,p_cutoff_date:cutoff});
+  body.innerHTML='<tr><td colspan="6" class="empty">Calculating five-year comparison…</td></tr>';
+  let request=db.rpc("get_five_year_revenue_comparison",{p_fiscal_year:fy,p_cutoff_date:cutoff});
+  if(typeof AbortSignal!=="undefined"&&typeof AbortSignal.timeout==="function")request=request.abortSignal(AbortSignal.timeout(25000));
+  const {data,error}=await request;
   if(error)throw error;
   const years=data?.years||[];
   const rows=[
@@ -162,7 +165,7 @@ async function refreshExecutiveComparison(){
   if(sub)sub.textContent="Five-year comparison · "+note;
  }catch(e){
   console.error("Executive comparison failed:",e);
-  body.innerHTML='<tr><td class="empty">Comparison could not be loaded: '+esc(e.message||e)+'. Check that migration 010 has been applied.</td></tr>';
+  body.innerHTML='<tr><td colspan="6" class="empty">Five-year comparison could not be loaded: '+esc(e.message||e)+'. Verify that migration 010_five_year_common_cutoff.sql has been run in Supabase. If it has, this may be a database timeout.</td></tr>';
  }
 }
 async function refreshHeatmap(){
@@ -208,7 +211,7 @@ function openDayDetail(dayNo){
  document.body.style.overflow="hidden";
 }
 function closeDayDetail(){$("dayDetailModal").classList.remove("open");document.body.style.overflow=""}
-async function refreshExecutiveViews(){await Promise.all([refreshMajorTargetAchievement(),refreshExecutiveComparison(),refreshHeatmap()])}
+async function refreshExecutiveViews(){await Promise.allSettled([refreshMajorTargetAchievement(),refreshExecutiveComparison(),refreshHeatmap()])}
 
 function renderDashboardCharts(d){const daily=(d.daily||[]).slice().reverse();makeChart("trendChart","line",daily.map(x=>x.date),[{label:"Daily collection",data:daily.map(x=>Number(x.amount)),borderColor:"#4778c7",backgroundColor:"#4778c71c",fill:true,tension:.25,pointRadius:0,borderWidth:2}]);const comp=d.composition||[];makeChart("mixChart","doughnut",comp.map(x=>x.name),[{data:comp.map(x=>Number(x.amount)),backgroundColor:["#17345b","#c5a15c","#16877b","#5683b9","#a17caf","#cf8968","#8ca3b9","#6b9c8c","#bd6570","#718096"],borderWidth:0}]);}
 function makeChart(id,type,labels,datasets){if(charts[id])charts[id].destroy();const ctx=$(id);charts[id]=new Chart(ctx,{type,data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:type==="doughnut",position:"bottom",labels:{boxWidth:9,font:{size:9}}},tooltip:{callbacks:{label:c=>type==="doughnut"?c.label+": NPR "+fmt(c.raw):"NPR "+fmt(c.raw)}}},scales:type==="doughnut"?{}:{x:{grid:{display:false},ticks:{maxTicksLimit:9,font:{size:9}}},y:{grid:{color:"#edf0f4"},ticks:{font:{size:9},callback:v=>shortMoney(v)}}}}})}
