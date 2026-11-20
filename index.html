@@ -257,8 +257,8 @@ async function refreshAnalytics(){
   }
   const displayGregorian=latestCollectionDate||latestDate?.gregorian_date||null;
   const bsMonths=["Baishakh","Jestha","Ashadh","Shrawan","Bhadra","Ashwin","Kartik","Mangsir","Poush","Magh","Falgun","Chaitra"];
-  const bsParts=String(latestDate?.nepali_date||"").match(/^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})$/);
-  const nepaliDisplay=bsParts?bsMonths[Number(bsParts[2])-1]+" "+Number(bsParts[3])+", "+bsParts[1]:(latestDate?.nepali_date||"");
+  const bsParts=String(latestDate?.nepali_date||"").split(/[-/]/);
+  const nepaliDisplay=bsParts.length===3&&bsMonths[Number(bsParts[1])-1]?bsMonths[Number(bsParts[1])-1]+" "+Number(bsParts[2])+", "+bsParts[0]:(latestDate?.nepali_date||"");
   $("analyticsDataDate").textContent=nepaliDisplay||"Nepali date unavailable";
   $("analyticsDataDateGregorian").textContent=displayGregorian?("Gregorian date: "+new Intl.DateTimeFormat("en-GB",{day:"2-digit",month:"short",year:"numeric",timeZone:"UTC"}).format(new Date(displayGregorian+"T00:00:00Z"))):"No reported observations";
   const startDate=fyCalendar.find(x=>Number(x.fiscal_day)===1)?.gregorian_date;
