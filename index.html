@@ -203,24 +203,39 @@ let analyticsForecastContext=null,analyticsIntelData=null;let analyticsUnitDivis
 function analyticsScale(){const u=$("analyticsUnit")?.value||"arba";return u==="npr"?1:u==="kharba"?1e11:1e9}
 function analyticsAmount(v){return (Number(v||0)/analyticsScale()).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})+" "+({npr:"NPR",billion:"bn",arba:"arba",kharba:"kharba"}[$("analyticsUnit")?.value||"arba"])}
 function analyticsCategoryRows(){const selected=$("analyticsCategory")?.value||"Total",heads=analyticsIntelData?.heads||[];let rows=heads.map(x=>({name:x.description||x.code,code:x.code,category:x.category,value:Number(x.current||0)})).filter(x=>x.value>0);if(selected==="Tax revenue")rows=rows.filter(x=>["VAT","Excise","Customs","Income Tax","Unclassified"].includes(x.category));else if(selected==="Non-tax revenue")rows=rows.filter(x=>["Interest and Dividends","Royalty"].includes(x.category));else if(selected!=="Total")rows=rows.filter(x=>x.category===selected);return rows.sort((a,b)=>b.value-a.value).slice(0,100)}
+let treemapRequestVersion=0;
 async function renderAnalyticsTreemap(){
- const root=$("analyticsTreemap");if(!root)return;root.innerHTML="<div class=\"analytics-tree-empty\">Calculating revenue composition…</div>";
+ const root=$("analyticsTreemap");if(!root)return;
+ const requestVersion=++treemapRequestVersion;
  const selected=$("analyticsCategory")?.value||"Total",fy=$("analyticsFy")?.value||activeFY;
- const result=await db.rpc("get_revenue_category_heads",{p_fiscal_year:fy,p_category:selected});
- const rows=(result.error?[]:(result.data?.heads||[])).map(x=>({name:x.description||x.code,code:x.code,category:x.category,value:Number(x.current||0),share:Number(x.share||0),growth:x.growth===null||x.growth===undefined?null:Number(x.growth),prior:Number(x.prior||0)})).filter(x=>x.value>0).sort((a,b)=>b.value-a.value).slice(0,250);
- if(!rows.length){root.innerHTML="<div class=\"analytics-tree-empty\">No classified revenue-head data for this selection.</div>";return}
- const colors=["#17345b","#c5a15c","#16877b","#5683b9","#8b79a8","#cf8968","#718096","#6b9c8c"],total=rows.reduce((s,x)=>s+x.value,0),tiles=[];
- function split(items,x,y,w,h,depth){
-  if(!items.length)return;
-  if(items.length===1){tiles.push({item:items[0],x,y,w,h});return}
-  const sum=items.reduce((s,v)=>s+v.value,0);let acc=0,cut=1;
-  for(;cut<items.length;cut++){acc+=items[cut-1].value;if(acc>=sum/2)break}
-  const first=items.slice(0,cut),second=items.slice(cut),share=first.reduce((s,v)=>s+v.value,0)/sum;
-  if(w>=h){const w1=w*share;split(first,x,y,w1,h,depth+1);split(second,x+w1,y,w-w1,h,depth+1)}
-  else{const h1=h*share;split(first,x,y,w,h1,depth+1);split(second,x,y+h1,w,h-h1,depth+1)}
+ root.innerHTML="<div class=\"analytics-tree-empty\"><span class=\"analytics-spinner\"></span><strong>Calculating revenue composition…</strong><small>Retrieving and classifying revenue-head collections</small></div>";
+ if(!fy){root.innerHTML="<div class=\"analytics-tree-empty\">Select a fiscal year to view revenue composition.</div>";return}
+ try{
+  let query=db.rpc("get_revenue_category_heads",{p_fiscal_year:fy,p_category:selected});
+  if(typeof AbortSignal!=="undefined"&&typeof AbortSignal.timeout==="function")query=query.abortSignal(AbortSignal.timeout(45000));
+  const result=await query;
+  if(requestVersion!==treemapRequestVersion)return;
+  if(result.error)throw new Error(result.error.message||"The database could not return revenue composition.");
+  const rows=(result.data?.heads||[]).map(x=>({name:x.description||x.code,code:x.code,category:x.category,value:Number(x.current||0),share:Number(x.share||0),growth:x.growth===null||x.growth===undefined?null:Number(x.growth),prior:Number(x.prior||0)})).filter(x=>x.value>0).sort((a,b)=>b.value-a.value).slice(0,250);
+  if(!rows.length){root.innerHTML="<div class=\"analytics-tree-empty\">No revenue-head collections were found for "+esc(selected)+" in FY "+esc(fy)+". Check the classification rules and fiscal calendar.</div>";return}
+  const colors=["#17345b","#c5a15c","#16877b","#5683b9","#8b79a8","#cf8968","#718096","#6b9c8c"],tiles=[];
+  function split(items,x,y,w,h){
+   if(!items.length)return;
+   if(items.length===1){tiles.push({item:items[0],x,y,w,h});return}
+   const sum=items.reduce((s,v)=>s+v.value,0);let acc=0,cut=1;
+   for(;cut<items.length;cut++){acc+=items[cut-1].value;if(acc>=sum/2)break}
+   const first=items.slice(0,cut),second=items.slice(cut),share=first.reduce((s,v)=>s+v.value,0)/sum;
+   if(w>=h){const w1=w*share;split(first,x,y,w1,h);split(second,x+w1,y,w-w1,h)}
+   else{const h1=h*share;split(first,x,y,w,h1);split(second,x,y+h1,w,h-h1)}
+  }
+  split(rows,0,0,100,100);
+  root.innerHTML=tiles.map((t,i)=>{const x=t.item,growth=x.growth===null?"Growth: n/a":("Growth: "+(x.growth>0?"+":"")+x.growth.toFixed(1)+"%"),share="Share: "+x.share.toFixed(1)+"%",details=analyticsAmount(x.value)+" · "+share+" · "+growth;return '<div class="analytics-tree-tile" style="left:'+t.x+'%;top:'+t.y+'%;width:'+t.w+'%;height:'+t.h+'%;background:'+colors[i%colors.length]+'" title="'+esc(x.name)+' · '+esc(details)+'"><strong>'+esc(x.name)+'</strong><span>'+esc(analyticsAmount(x.value))+'</span><small>'+esc(share)+'</small><small>'+esc(growth)+'</small></div>'}).join("");
+ }catch(e){
+  if(requestVersion!==treemapRequestVersion)return;
+  console.error("Revenue composition treemap:",e);
+  root.innerHTML='<div class="analytics-tree-empty"><strong>Revenue composition could not be loaded.</strong><small>'+esc(e.message||String(e))+'</small><button type="button" class="btn ghost" id="retryTreemap">Retry</button></div>';
+  $("retryTreemap")?.addEventListener("click",renderAnalyticsTreemap);
  }
- split(rows,0,0,100,100,0);
- root.innerHTML=tiles.map((t,i)=>{const x=t.item,growth=x.growth===null?"Growth: n/a":("Growth: "+(x.growth>0?"+":"")+x.growth.toFixed(1)+"%");const share="Share: "+x.share.toFixed(1)+"%";const details=analyticsAmount(x.value)+" · "+share+" · "+growth;return '<div class="analytics-tree-tile" style="left:'+t.x+'%;top:'+t.y+'%;width:'+t.w+'%;height:'+t.h+'%;background:'+colors[i%colors.length]+'" title="'+esc(x.name)+' · '+esc(details)+'"><strong>'+esc(x.name)+'</strong><span>'+esc(analyticsAmount(x.value))+'</span><small>'+esc(share)+'</small><small>'+esc(growth)+'</small></div>'}).join("");
 }
 
 function populateTreemapLightbox(){
