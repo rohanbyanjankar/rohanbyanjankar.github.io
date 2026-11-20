@@ -243,6 +243,7 @@ function renderAnalyticsForecast(ctx){
  const forecastStart=lastComplete+1,remainingShares=shares.slice(forecastStart),remainingTotal=remainingShares.reduce((x,y)=>x+(Number.isFinite(y)?y:0),0),futureBudget=Math.max(0,annual-ytd),future=remainingShares.slice(0,horizon).map(s=>remainingTotal>0?futureBudget*(s||0)/remainingTotal:0);
  const labels=months.slice(0,Math.min(12,forecastStart+future.length)),actual=Array(labels.length).fill(null),projected=Array(labels.length).fill(null);
  vals.slice(0,lastComplete+1).forEach((v,i)=>{if(v>0)actual[i]=v/analyticsScale()});
+ if(lastComplete>=0&&actual[lastComplete]!==null)projected[lastComplete]=actual[lastComplete];
  future.forEach((v,i)=>projected[forecastStart+i]=v/analyticsScale());
  makeAnalyticsChart("forecastChart","line",labels,[
   {label:"Completed-month actual",data:actual,borderColor:"#17345b",backgroundColor:"#17345b",borderWidth:2.5,pointRadius:3,spanGaps:false},
