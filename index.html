@@ -220,7 +220,7 @@ async function renderAnalyticsTreemap(){
   else{const h1=h*share;split(first,x,y,w,h1,depth+1);split(second,x,y+h1,w,h-h1,depth+1)}
  }
  split(rows,0,0,100,100,0);
- root.innerHTML=tiles.map((t,i)=>{const x=t.item,growth=x.growth===null?"Growth: n/a":("Growth: "+(x.growth>0?"+":"")+x.growth.toFixed(1)+"%");const share="Share: "+x.share.toFixed(1)+"%";const details=analyticsAmount(x.value)+" · "+share+" · "+growth;return "<div class=\\"analytics-tree-tile\\" style=\\"left:"+t.x+"%;top:"+t.y+"%;width:"+t.w+"%;height:"+t.h+"%;background:"+colors[i%colors.length]+"\\" title=\\""+esc(x.name)+" · "+esc(details)+"\\"><strong>"+esc(x.name)+"</strong><span>"+esc(analyticsAmount(x.value))+"</span><small>"+esc(share)+"</small><small>"+esc(growth)+"</small></div>"}).join("");
+ root.innerHTML=tiles.map((t,i)=>{const x=t.item,growth=x.growth===null?"Growth: n/a":("Growth: "+(x.growth>0?"+":"")+x.growth.toFixed(1)+"%");const share="Share: "+x.share.toFixed(1)+"%";const details=analyticsAmount(x.value)+" · "+share+" · "+growth;return '<div class="analytics-tree-tile" style="left:'+t.x+'%;top:'+t.y+'%;width:'+t.w+'%;height:'+t.h+'%;background:'+colors[i%colors.length]+'" title="'+esc(x.name)+' · '+esc(details)+'"><strong>'+esc(x.name)+'</strong><span>'+esc(analyticsAmount(x.value))+'</span><small>'+esc(share)+'</small><small>'+esc(growth)+'</small></div>'}).join("");
 }
 
 function populateTreemapLightbox(){
