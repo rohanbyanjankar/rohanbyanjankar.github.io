@@ -227,8 +227,8 @@ function applyAnalyticsMonth(){
  const sel=$("analyticsMonth"),idx=Number(sel?.value);if(!Number.isFinite(idx))return;
  const monthStart=Number(p.monthStarts[idx]||0),monthEnd=Number(p.monthEnds[idx]||0);
  const availableDays=p.currentDaily.filter(x=>Number(x.day)>=monthStart&&Number(x.day)<=monthEnd);
- const cutoff=Math.max(0,...availableDays.map(x=>Number(x.day)||0));
- if(!cutoff)return;
+ const cutoff=Math.max(0,...availableDays.filter(x=>Number(x.amount)!==0).map(x=>Number(x.day)||0));
+ if(!cutoff){$("analyticsMonthDate").textContent="No reported observations for "+months[idx];return;}
  const currentYtd=p.currentDaily.filter(x=>Number(x.day)<=cutoff).reduce((s,x)=>s+Number(x.amount||0),0);
  const priorYtd=p.priorDaily.filter(x=>Number(x.day)<=cutoff).reduce((s,x)=>s+Number(x.amount||0),0);
  $("analyticsYtd").textContent=shortMoney(currentYtd);
@@ -248,7 +248,7 @@ async function refreshAnalytics(){
   // Render the core KPIs immediately, before optional historical or classification queries.
   $("analyticsYtd").textContent=shortMoney(d.ytd||0);$("analyticsPrior").textContent=shortMoney(d.prior_ytd||0);$("analyticsGrowth").textContent=pct(d.yoy_growth);
   const dailyCurrent=d.daily_fiscal||[],lastDay=Math.max(0,...dailyCurrent.map(x=>Number(x.day)||0));
-  $("analyticsAsOf").textContent="Based on available fiscal data";$("analyticsLatestMonth").textContent="Not available";
+  $("analyticsAsOf").textContent="Based on available fiscal data";$("analyticsMonthDate").textContent="Loading reported date…";
   const intelResult=await db.rpc("get_revenue_intelligence",{p_fiscal_year:fy});
   analyticsIntelData=intelResult.error?null:intelResult.data;renderAnalyticsTreemap();
   $("analyticsUnitLabel").textContent=($("analyticsUnit").value||"arba").toUpperCase();$("dailyUnitLabel").textContent=($("analyticsUnit").value||"arba").toUpperCase();
@@ -267,14 +267,14 @@ async function refreshAnalytics(){
   const observedMonths=new Set(dailyCurrent.filter(x=>Number(x.amount)!==0).map(x=>{const row=fyCal.find(y=>Number(y.fiscal_day)===Number(x.day));return row?Number(row.fiscal_month)-1:-1;}).filter(x=>x>=0));
   const monthSelect=$("analyticsMonth");monthSelect.innerHTML=[...observedMonths].sort((a,b)=>a-b).map(m=>'<option value="'+m+'">'+months[m]+'</option>').join("");
   if(observedMonths.size){monthSelect.value=String(Math.max(...observedMonths));applyAnalyticsMonth();}
-  else{$("analyticsMonthDate").textContent="No reported observations";}
+  else{$("analyticsYtd").textContent="—";$("analyticsPrior").textContent="—";$("analyticsGrowth").textContent="—";$("analyticsAsOf").textContent="No reported observations";$("analyticsMonthDate").textContent="No reported observations";}
   const startDate=cal.find(x=>x.fiscal_year===fy&&Number(x.fiscal_day)===1)?.gregorian_date,map=new Map(cal.filter(x=>x.fiscal_year===fy).map(x=>[Number(x.fiscal_day),(x.nepali_date||"")+" · "+x.gregorian_date]));
   const labels=Array.from({length:365},(_,i)=>{const day=i+1;if(map.has(day))return map.get(day);if(startDate){const dt=new Date(startDate+"T00:00:00Z");dt.setUTCDate(dt.getUTCDate()+i);return dt.toISOString().slice(0,10)}return "Fiscal day "+day});
   const dailySets=results.slice(0,5).map((r,i)=>{const v=Array(365).fill(null);(r.data?.daily_fiscal||[]).forEach(x=>{const day=Number(x.day);if(day>0&&day<=365&&Number(x.amount)!==0)v[day-1]=Number(x.amount)/analyticsScale()});return {label:years[i],data:v,borderColor:palette[i],backgroundColor:palette[i],tension:.16,borderWidth:i===0?2.8:1.8,pointRadius:0,pointHoverRadius:4,spanGaps:false}});
   makeAnalyticsChart("dailyCompareChart","line",labels,dailySets,"daily");
   renderAnalyticsTreemap();
   $("analyticsRows").innerHTML=(d.top_heads||[]).map(x=>'<tr><td>'+esc(x.code)+'</td><td>'+esc(x.description)+'</td><td>'+esc(x.category)+'</td><td class="right">'+fmt(x.amount)+'</td></tr>').join("")||'<tr><td colspan="4" class="empty">No revenue head observations for this fiscal year.</td></tr>';
-  const latest=cal.find(x=>x.fiscal_year===fy&&Number(x.fiscal_day)===lastDay);if(latest){$("analyticsAsOf").textContent="Through "+latest.nepali_date;$("analyticsLatestMonth").textContent=months[Number(latest.fiscal_month||1)-1];}
+  const latest=cal.find(x=>x.fiscal_year===fy&&Number(x.fiscal_day)===lastDay);if(latest){$("analyticsAsOf").textContent="Through "+(latest.nepali_date||latest.gregorian_date);}
 
  }catch(e){if($("forecastNote"))$("forecastNote").textContent="Analysis could not be completed: "+(e.message||e);console.error("Revenue analytics:",e);throw e}
  finally{if(overlay)overlay.classList.add("hidden")}
