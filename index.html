@@ -243,14 +243,19 @@ async function refreshAnalytics(){
   const calResult=await db.from("fiscal_calendar").select("fiscal_year,fiscal_day,gregorian_date,nepali_date,fiscal_month").in("fiscal_year",years).order("fiscal_year",{ascending:true}).order("fiscal_day",{ascending:true});
   const cal=calResult.error?[]:(calResult.data||[]);
   const latestObservedDay=Math.max(0,...dailyCurrent.filter(x=>Number(x.amount||0)!==0).map(x=>Number(x.day)||0));
-  const latestDate=cal.find(x=>x.fiscal_year===fy&&Number(x.fiscal_day)===latestObservedDay);
-  const startDate=cal.find(x=>x.fiscal_year===fy&&Number(x.fiscal_day)===1)?.gregorian_date;
-  let fallbackGregorian=null;
-  if(latestObservedDay>0&&startDate){const dt=new Date(startDate+"T00:00:00Z");dt.setUTCDate(dt.getUTCDate()+latestObservedDay-1);fallbackGregorian=dt.toISOString().slice(0,10);}
-  const displayGregorian=latestDate?.gregorian_date||fallbackGregorian;
+  const fyCalendar=cal.filter(x=>x.fiscal_year===fy&&x.gregorian_date);
+  const fyStart=fyCalendar.map(x=>x.gregorian_date).sort()[0],fyEnd=fyCalendar.map(x=>x.gregorian_date).sort().slice(-1)[0];
+  let latestCollectionDate=null;
+  let dateQuery=db.from("revenue_daily").select("collection_date").neq("collection_amount",0).order("collection_date",{ascending:false}).limit(1);
+  if(fyStart&&fyEnd)dateQuery=dateQuery.gte("collection_date",fyStart).lte("collection_date",fyEnd);
+  const latestQueryResult=await dateQuery;
+  if(!latestQueryResult.error)latestCollectionDate=latestQueryResult.data?.[0]?.collection_date||null;
+  const latestDate=latestCollectionDate?cal.find(x=>x.fiscal_year===fy&&x.gregorian_date===latestCollectionDate):cal.find(x=>x.fiscal_year===fy&&Number(x.fiscal_day)===latestObservedDay);
+  const displayGregorian=latestCollectionDate||latestDate?.gregorian_date||null;
   const displayDate=latestDate?.nepali_date||(displayGregorian?new Intl.DateTimeFormat("en-GB",{day:"2-digit",month:"short",year:"numeric",timeZone:"UTC"}).format(new Date(displayGregorian+"T00:00:00Z")):"Date unavailable");
-  $("analyticsDataDate").textContent=latestObservedDay?displayDate:"—";
-  $("analyticsDataDateGregorian").textContent=latestObservedDay?(latestDate?.nepali_date&&latestDate?.gregorian_date?latestDate.gregorian_date:"Gregorian date calculated from fiscal-year start"):"No reported observations";
+  $("analyticsDataDate").textContent=displayGregorian?displayDate:"—";
+  $("analyticsDataDateGregorian").textContent=displayGregorian?(latestDate?.nepali_date&&latestDate?.gregorian_date?latestDate.gregorian_date:"Latest database observation (Gregorian date)"):"No reported observations";
+  const startDate=fyCalendar.find(x=>Number(x.fiscal_day)===1)?.gregorian_date;
   const map=new Map(cal.filter(x=>x.fiscal_year===fy).map(x=>[Number(x.fiscal_day),(x.nepali_date||"")+" · "+x.gregorian_date]));
   const labels=Array.from({length:365},(_,i)=>{const day=i+1;if(map.has(day))return map.get(day);if(startDate){const dt=new Date(startDate+"T00:00:00Z");dt.setUTCDate(dt.getUTCDate()+i);return dt.toISOString().slice(0,10)}return "Fiscal day "+day});
   const dailySets=results.slice(0,5).map((r,i)=>{const v=Array(365).fill(null);(r.data?.daily_fiscal||[]).forEach(x=>{const day=Number(x.day);if(day>0&&day<=365&&Number(x.amount)!==0)v[day-1]=Number(x.amount)/analyticsScale()});return {label:years[i],data:v,borderColor:palette[i],backgroundColor:palette[i],tension:.16,borderWidth:i===0?2.8:1.8,pointRadius:0,pointHoverRadius:4,spanGaps:false}});
