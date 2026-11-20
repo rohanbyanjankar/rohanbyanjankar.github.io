@@ -203,8 +203,11 @@ let analyticsForecastContext=null,analyticsIntelData=null;let analyticsUnitDivis
 function analyticsScale(){const u=$("analyticsUnit")?.value||"arba";return u==="npr"?1:u==="kharba"?1e11:1e9}
 function analyticsAmount(v){return (Number(v||0)/analyticsScale()).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})+" "+({npr:"NPR",billion:"bn",arba:"arba",kharba:"kharba"}[$("analyticsUnit")?.value||"arba"])}
 function analyticsCategoryRows(){const selected=$("analyticsCategory")?.value||"Total",heads=analyticsIntelData?.heads||[];let rows=heads.map(x=>({name:x.description||x.code,code:x.code,category:x.category,value:Number(x.current||0)})).filter(x=>x.value>0);if(selected==="Tax revenue")rows=rows.filter(x=>["VAT","Excise","Customs","Income Tax","Unclassified"].includes(x.category));else if(selected==="Non-tax revenue")rows=rows.filter(x=>["Interest and Dividends","Royalty"].includes(x.category));else if(selected!=="Total")rows=rows.filter(x=>x.category===selected);return rows.sort((a,b)=>b.value-a.value).slice(0,100)}
-function renderAnalyticsTreemap(){
- const root=$("analyticsTreemap");if(!root)return;const rows=analyticsCategoryRows();
+async function renderAnalyticsTreemap(){
+ const root=$("analyticsTreemap");if(!root)return;root.innerHTML="<div class=\"analytics-tree-empty\">Calculating revenue composition…</div>";
+ const selected=$("analyticsCategory")?.value||"Total",fy=$("analyticsFy")?.value||activeFY;
+ const result=await db.rpc("get_revenue_category_heads",{p_fiscal_year:fy,p_category:selected});
+ const rows=(result.error?[]:(result.data||[])).map(x=>({name:x.description||x.code,code:x.code,category:x.category,value:Number(x.current||0)})).filter(x=>x.value>0).sort((a,b)=>b.value-a.value).slice(0,250);
  if(!rows.length){root.innerHTML="<div class=\"analytics-tree-empty\">No classified revenue-head data for this selection.</div>";return}
  const colors=["#17345b","#c5a15c","#16877b","#5683b9","#8b79a8","#cf8968","#718096","#6b9c8c"],total=rows.reduce((s,x)=>s+x.value,0),tiles=[];
  function split(items,x,y,w,h,depth){
@@ -224,7 +227,7 @@ function median(values){const a=values.filter(Number.isFinite).sort((x,y)=>x-y);
 async function renderMonthlyRevenueProfile(fy){
  const category=$("analyticsMonthlyCategory")?.value||"Total";
  const result=await db.rpc("get_monthly_revenue_profile",{p_fiscal_year:fy,p_category:category});
- if(result.error){$("monthlyChartNote").textContent="Monthly category profile unavailable. Apply migration 013_monthly_revenue_profile_by_category.sql in Supabase. "+result.error.message;makeAnalyticsChart("monthlyChart","line",months,[],"monthly");return}
+ if(result.error){$("monthlyChartNote").textContent="Monthly category profile unavailable. Apply migration 014_fix_revenue_category_matching.sql in Supabase. "+result.error.message;makeAnalyticsChart("monthlyChart","line",months,[],"monthly");return}
  const years=result.data?.years||[],palette=["#17345b","#c5a15c","#16877b","#8b79a8","#9ba9b8"];
  const sets=years.map((y,i)=>{const raw=y.monthly||[],last=raw.reduce((m,x,j)=>Number(x.observations)>0?j:m,-1);return {label:y.fiscal_year,data:raw.map((x,j)=>j<=last&&Number(x.observations)>0?Number(x.amount)/analyticsScale():null),borderColor:palette[i%palette.length],backgroundColor:palette[i%palette.length],tension:.28,borderWidth:i===0?2.8:2,pointRadius:2,spanGaps:false}});
  makeAnalyticsChart("monthlyChart","line",months,sets,"monthly");
@@ -242,7 +245,7 @@ async function refreshAnalytics(){
   const dailyCurrent=d.daily_fiscal||[];
   $("analyticsAsOf").textContent="Based on available fiscal data";$("analyticsDataDate").textContent="Loading…";$("analyticsDataDateGregorian").textContent="Checking latest observation";
   const intelResult=await db.rpc("get_revenue_intelligence",{p_fiscal_year:fy});
-  analyticsIntelData=intelResult.error?null:intelResult.data;renderAnalyticsTreemap();
+  analyticsIntelData=intelResult.error?null:intelResult.data;
   $("analyticsUnitLabel").textContent=($("analyticsUnit").value||"arba").toUpperCase();$("dailyUnitLabel").textContent=($("analyticsUnit").value||"arba").toUpperCase();
   const available=[...$("analyticsFy").options].map(o=>o.value).filter(Boolean),start=available.indexOf(fy),wanted=start<0?[fy]:available.slice(start),historyResults=await Promise.all(wanted.slice(1).map(async y=>({fy:y,result:await db.rpc("get_revenue_dashboard",{p_fiscal_year:y})})));
   const historical=historyResults.filter(x=>!x.result.error&&x.result.data),years=[fy,...historical.map(x=>x.fy)],results=[{data:d},...historical.map(x=>x.result)];
@@ -274,7 +277,7 @@ async function refreshAnalytics(){
   const labels=Array.from({length:365},(_,i)=>{const day=i+1;if(map.has(day))return map.get(day);if(startDate){const dt=new Date(startDate+"T00:00:00Z");dt.setUTCDate(dt.getUTCDate()+i);return dt.toISOString().slice(0,10)}return "Fiscal day "+day});
   const dailySets=results.slice(0,5).map((r,i)=>{const v=Array(365).fill(null);(r.data?.daily_fiscal||[]).forEach(x=>{const day=Number(x.day);if(day>0&&day<=365&&Number(x.amount)!==0)v[day-1]=Number(x.amount)/analyticsScale()});return {label:years[i],data:v,borderColor:palette[i],backgroundColor:palette[i],tension:.16,borderWidth:i===0?2.8:1.8,pointRadius:0,pointHoverRadius:4,spanGaps:false}});
   makeAnalyticsChart("dailyCompareChart","line",labels,dailySets,"daily");
-  renderAnalyticsTreemap();
+  await renderAnalyticsTreemap();
   $("analyticsRows").innerHTML=(d.top_heads||[]).map(x=>'<tr><td>'+esc(x.code)+'</td><td>'+esc(x.description)+'</td><td>'+esc(x.category)+'</td><td class="right">'+fmt(x.amount)+'</td></tr>').join("")||'<tr><td colspan="4" class="empty">No revenue head observations for this fiscal year.</td></tr>';
   
 
