@@ -8,7 +8,7 @@ language plpgsql
 security definer
 set search_path = public
 as $$
-declare outj jsonb; prior_fy text;
+declare outj jsonb; prior_fy text; cutoff_day integer;
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
   select max(fiscal_year) into prior_fy
@@ -17,6 +17,11 @@ begin
     from public.fiscal_calendar
   ) y
   where fy_start < split_part(p_fiscal_year,'/',1)::integer;
+
+  select max(c.fiscal_day) into cutoff_day
+  from public.revenue_daily r
+  join public.fiscal_calendar c on c.gregorian_date=r.collection_date
+  where c.fiscal_year=p_fiscal_year;
 
   with base as (
     select c.fiscal_year,r.revenue_head_id code,
@@ -33,6 +38,7 @@ begin
       order by length(code_prefix) desc limit 1
     ) rule on true
     where c.fiscal_year in (p_fiscal_year,prior_fy)
+      and (c.fiscal_year=p_fiscal_year or c.fiscal_day<=coalesce(cutoff_day,0))
     group by c.fiscal_year,r.revenue_head_id,h.description,r.revenue_description,rule.classification,rule.action
   ),
   current_heads as (
