@@ -225,11 +225,11 @@ function renderAnalyticsForecast(ctx){
  if(!ctx){$("forecastNote").textContent="Historical data are not available.";makeAnalyticsChart("forecastChart","line",months,[],"forecast");return}
  const horizon=Number($("forecastHorizon").value||6),vals=months.map((_,i)=>Math.max(0,Number(ctx.current[i]?.amount||0))),lastObserved=vals.reduce((m,v,i)=>v>0?i:m,-1);
  if(lastObserved<0){$("forecastNote").textContent="No current-year monthly collections are available.";makeAnalyticsChart("forecastChart","line",months,[],"forecast");return}
- const latestDay=Math.max(0,...(ctx.currentDaily||[]).map(x=>Number(x.day)||0)),latestCalendar=ctx.calendar.find(x=>x.fiscal_year===ctx.fiscalYear&&Number(x.fiscal_day)===latestDay);
+ const latestDay=Math.max(0,...(ctx.currentDaily||[]).filter(x=>Number(x.amount)!==0).map(x=>Number(x.day)||0)),latestCalendar=ctx.calendar.find(x=>x.fiscal_year===ctx.fiscalYear&&Number(x.fiscal_day)===latestDay);
  const observedMonth=latestCalendar?Math.max(0,Math.min(11,Number(latestCalendar.fiscal_month)-1)):lastObserved;
  const monthInfo=ctx.calendar.filter(x=>x.fiscal_year===ctx.fiscalYear&&Number(x.fiscal_month)===observedMonth+1).sort((a,b)=>Number(a.fiscal_day)-Number(b.fiscal_day));
- const monthStart=Number(monthInfo[0]?.fiscal_day||0),monthEnd=Number(monthInfo[monthInfo.length-1]?.fiscal_day||0);
- const incompleteMonth=!!(monthStart&&latestDay>=monthStart&&latestDay<monthEnd);
+ const monthStart=Number(monthInfo[0]?.fiscal_day||0),monthEnd=Number(monthInfo[monthInfo.length-1]?.fiscal_day||0),historicalMonthLengths=ctx.calendar.filter(x=>Number(x.fiscal_month)===observedMonth+1&&x.fiscal_year!==ctx.fiscalYear).reduce((acc,x)=>{const a=acc[x.fiscal_year]||(acc[x.fiscal_year]=[]);a.push(Number(x.fiscal_day));return acc},{}),expectedMonthLength=median(Object.values(historicalMonthLengths).map(a=>Math.max(...a)-Math.min(...a)+1)),expectedEnd=monthStart+(expectedMonthLength||monthInfo.length)-1;
+ const incompleteMonth=!!(monthStart&&latestDay>=monthStart&&(latestDay<expectedEnd||monthInfo.length<(expectedMonthLength||monthInfo.length)));
  const lastComplete=incompleteMonth?observedMonth-1:observedMonth;
  if(lastComplete<0){$("forecastNote").textContent="No fully completed fiscal month is available yet. The incomplete month is excluded from forecasting.";makeAnalyticsChart("forecastChart","line",months,[],"forecast");return}
  const complete=ctx.history.filter(y=>y.monthly.length===12&&y.monthly.every(v=>v>0)&&y.total>0),eligible=complete.filter(y=>y.fiscal_year!=="2076/77");
