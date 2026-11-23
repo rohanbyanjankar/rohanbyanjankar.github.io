@@ -47,3 +47,25 @@ Monthly formula: previous fiscal year's same-month actual collection × (1 + gro
 ## Before official use
 
 The current CSV supplied for development is hypothetical test data. The dashboard labels it as test data. Replace it with approved source data and load a complete, authoritative BS fiscal calendar. Test user roles, RLS policies, backup/restore, data correction and dashboard totals against official statements before relying on it for policy decisions. No calendar dates are invented by the application.
+
+
+## Nepali fiscal calendar automation
+
+The calendar engine is maintained in `calendar_engine/`. It retains the
+previously supplied calendar as `legacy_unverified.csv` for reference only.
+It does not automatically trust or import those historical rows.
+
+Only year files in `calendar_engine/data/official_calendar/` marked
+`official_verified`, with full month lengths and source provenance, are
+published. GitHub Actions validates them and generates the CSV/JSON files
+under `calendar/`. The workflow runs after approved source changes, monthly,
+and on manual dispatch.
+
+In **Data Operations**, administrators can check the GitHub calendar status
+and import the verified calendar. The dashboard checks date continuity and
+fiscal classifications, compares every date with existing Supabase records,
+blocks conflicts, and inserts only missing dates. It never silently overwrites
+existing calendar rows.
+
+See [calendar engine documentation](calendar_engine/README.md) and
+[official calendar input schema](calendar_engine/data/official_calendar/README.md).

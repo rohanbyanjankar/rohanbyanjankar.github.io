@@ -1,0 +1,54 @@
+name: Validate and publish Nepali fiscal calendar
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "calendar_engine/**"
+      - ".github/workflows/update-nepali-calendar.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "calendar_engine/**"
+      - ".github/workflows/update-nepali-calendar.yml"
+  schedule:
+    - cron: "17 1 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nepali-calendar-publish
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate source and generate outputs
+        run: python calendar_engine/generate_calendar.py
+
+      - name: Run tests
+        run: python -m unittest discover -s calendar_engine/tests -v
+
+      - name: Commit generated output
+        if: github.event_name != 'pull_request'
+        run: |
+          if [[ -n "$(git status --porcelain calendar/)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add calendar/
+            git commit -m "chore: publish validated Nepali fiscal calendar"
+            git push
+          else
+            echo "Calendar outputs are already current."
+          fi
