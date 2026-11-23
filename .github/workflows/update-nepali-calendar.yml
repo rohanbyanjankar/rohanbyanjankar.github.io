@@ -6,6 +6,11 @@ on:
     paths:
       - "calendar_engine/**"
       - ".github/workflows/update-nepali-calendar.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "calendar_engine/**"
+      - ".github/workflows/update-nepali-calendar.yml"
   schedule:
     - cron: "17 1 1 * *"
   workflow_dispatch:
@@ -36,6 +41,7 @@ jobs:
         run: python -m unittest discover -s calendar_engine/tests -v
 
       - name: Commit generated output
+        if: github.event_name != 'pull_request'
         run: |
           if [[ -n "$(git status --porcelain calendar/)" ]]; then
             git config user.name "github-actions[bot]"
