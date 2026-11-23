@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from datetime import date, timedelta
 from pathlib import Path
-from generate_calendar import CalendarError, build_rows, load_years, write_outputs
+from calendar_engine.generate_calendar import CalendarError, build_rows, load_years, write_outputs
 
 LENGTHS = [30, 31, 31, 32, 31, 30, 30, 29, 30, 30, 31, 30]
 
