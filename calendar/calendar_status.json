@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-11-23T06:12:12.976498+00:00",
+  "status": "no_verified_calendar",
+  "verified_bs_years": [],
+  "verified_year_count": 0,
+  "row_count": 0,
+  "first_gregorian_date": null,
+  "last_gregorian_date": null,
+  "fiscal_years": [],
+  "legacy_unverified_row_count": 3040,
+  "provenance": [],
+  "policy": "Only official_verified years are published. Legacy rows and projections are never promoted automatically."
+}
