@@ -405,9 +405,9 @@ function validateCalendarRows(rows){
  const seen=new Set();let prevG=null,prevBS=null,prevFY=null,prevFD=null;
  for(let i=0;i<rows.length;i++){
   const r=rows[i],g=String(r.gregorian_date||"").trim(),bs=String(r.nepali_date||"").trim(),fy=String(r.fiscal_year||"").trim(),fm=Number(r.fiscal_month),fd=Number(r.fiscal_day);
-  if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(g)||!validateDate(g))fail("Invalid Gregorian date at row "+(i+2)+": "+g+" (expected YYYY-MM-DD).");
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(g)||!validateDate(g))fail("Invalid Gregorian date at row "+(i+2)+": "+g+" (expected YYYY-MM-DD).");
   if(seen.has(g))fail("Duplicate Gregorian date: "+g);seen.add(g);
-  const match=bs.match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);if(!match)fail("Invalid BS date at row "+(i+2)+": "+bs);
+  const match=bs.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(!match)fail("Invalid BS date at row "+(i+2)+": "+bs);
   const by=Number(match[1]),bm=Number(match[2]),bd=Number(match[3]);
   if(bm<1||bm>12||bd<1||bd>32)fail("Invalid BS month/day at row "+(i+2)+": "+bs);
   const fyStart=bm>=4?by:by-1,expectedFY=fyStart+"/"+String((fyStart+1)%100).padStart(2,"0"),expectedFM=((bm-4+12)%12)+1;
