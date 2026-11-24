@@ -134,51 +134,51 @@ function formatExecutiveAmount(value,unit){
 async function refreshExecutiveComparison(){
  const body=$("execCompareRows");
  try{
-  const fy=$("fySelect").value||activeFY;
-  if(!fy){body.innerHTML='<tr><td class="empty">Select a fiscal year to load comparisons.</td></tr>';return}
-  const metric=$("execMetric").value,unit=$("execUnit").value;
-  const cutoff=$("execCutoffDate").value||null;
-  body.innerHTML='<tr><td colspan="6" class="empty">Calculating five-year comparison…</td></tr>';
-  let request=db.rpc("get_five_year_revenue_comparison",{p_fiscal_year:fy,p_cutoff_date:cutoff});
-  if(typeof AbortSignal!=="undefined"&&typeof AbortSignal.timeout==="function")request=request.abortSignal(AbortSignal.timeout(25000));
-  const {data,error}=await request;
-  if(error)throw error;
-  const years=data?.years||[];
-  const activeRules=(rules||[]).filter(r=>r.is_active&&r.action!=="omit");
-  const rows=activeRules.length?[
-   {name:"Tax revenue",key:"tax_revenue",kind:"parent"},
-   {name:"VAT",key:"vat",kind:"child"},
-   {name:"Excise",key:"excise",kind:"child"},
-   {name:"Income tax",key:"income_tax",kind:"child"},
-   {name:"Customs",key:"customs",kind:"child"},
-   {name:"Unclassified",key:"unclassified",kind:"child"},
-   {name:"Non-tax revenue",key:"non_tax_revenue",kind:"parent"},
-   {name:"Interest and dividends",key:"interest_dividends",kind:"child"},
-   {name:"Royalty",key:"royalty",kind:"child"}
-  ]:[
-   {name:"Tax revenue",key:"tax_revenue",kind:"parent"},
-   {name:"Unclassified",key:"tax_revenue",kind:"child"},
-   {name:"Non-tax revenue",key:"non_tax_revenue",kind:"parent"},
-   {name:"Unclassified",key:"non_tax_revenue",kind:"child"}
-  ];
-  $("execCompareHead").innerHTML="<tr><th>Revenue heading</th>"+years.map(x=>'<th class="right">'+esc(x.fiscal_year)+(metric==="growth"?" · YoY":"")+"</th>").join("")+"</tr>";
+  const selectedFy=$("fySelect").value||activeFY;
+  if(!selectedFy){body.innerHTML='<tr><td class="empty">Select a fiscal year to load comparisons.</td></tr>';return}
+  const metric=$("execMetric").value,unit=$("execUnit").value,manualCutoff=$("execCutoffDate").value||null;
+  body.innerHTML='<tr><td colspan="6" class="empty">Calculating classification-based five-year comparison…</td></tr>';
+  const {data:calendar,error:calError}=await db.from("fiscal_calendar").select("gregorian_date,fiscal_year,fiscal_day").order("gregorian_date",{ascending:false});
+  if(calError)throw calError;
+  const allCalendar=calendar||[],fys=[...new Set(allCalendar.map(x=>x.fiscal_year))];
+  const selectedIndex=fys.indexOf(selectedFy),years=fys.slice(selectedIndex<0?0:selectedIndex, (selectedIndex<0?0:selectedIndex)+5);
+  if(!years.length)throw new Error("No fiscal calendar years found.");
+  const cal=allCalendar.filter(x=>years.includes(x.fiscal_year)&&(!manualCutoff||x.gregorian_date<=manualCutoff));
+  const dateToFy=new Map(cal.map(x=>[x.gregorian_date,x.fiscal_year]));
+  const dates=cal.map(x=>x.gregorian_date).sort();
+  if(!dates.length)throw new Error("No calendar dates available for the selected years and cutoff.");
+  const totals=new Map(), categories=new Map();
+  years.forEach(fy=>{totals.set(fy,0);categories.set(fy,new Map())});
+  let offset=0;const pageSize=1000;
+  while(true){
+   const {data,error}=await db.from("revenue_daily").select("id,collection_date,revenue_head_id,collection_amount").gte("collection_date",dates[0]).lte("collection_date",dates[dates.length-1]).order("collection_date",{ascending:true}).order("id",{ascending:true}).range(offset,offset+pageSize-1);
+   if(error)throw error;
+   for(const row of data||[]){
+    const fy=dateToFy.get(row.collection_date);if(!fy)continue;
+    const matched=classify(row.revenue_head_id);if(matched?.action==="omit")continue;
+    const amount=Number(row.collection_amount||0),broad=String(matched?.classification2||"Unclassified").trim()||"Unclassified",specific=String(matched?.classification1||"Unclassified").trim()||"Unclassified";
+    totals.set(fy,(totals.get(fy)||0)+amount);
+    const byBroad=categories.get(fy);if(!byBroad.has(broad))byBroad.set(broad,{total:0,specific:new Map()});
+    const group=byBroad.get(broad);group.total+=amount;group.specific.set(specific,(group.specific.get(specific)||0)+amount);
+   }
+   if(!data||data.length<pageSize)break;offset+=data.length;
+  }
+  const broadNames=[...new Set(years.flatMap(fy=>[...categories.get(fy).keys()]))].sort((a,b)=>a.localeCompare(b));
+  const rows=[];
+  broadNames.forEach(broad=>{
+   rows.push({name:broad,kind:"parent",value:fy=>categories.get(fy).get(broad)?.total||0});
+   const specificNames=[...new Set(years.flatMap(fy=>[...(categories.get(fy).get(broad)?.specific.keys()||[])]))].sort((a,b)=>a.localeCompare(b));
+   specificNames.forEach(specific=>rows.push({name:specific,kind:"child",value:fy=>categories.get(fy).get(broad)?.specific.get(specific)||0}));
+  });
+  rows.push({name:"Total classified revenue",kind:"total",value:fy=>totals.get(fy)||0});
+  $("execCompareHead").innerHTML="<tr><th>Classification 2 / Classification 1</th>"+years.map(fy=>'<th class="right">'+esc(fy)+(metric==="growth"?" · YoY":"")+"</th>").join("")+"</tr>";
   $("execCompareRows").innerHTML=rows.map(row=>{
-   const cells=years.map((x,i)=>{
-    const current=Number(x[row.key]||0);
-    const prior=i<years.length-1?Number(years[i+1][row.key]||0):null;
-    const growth=prior===null?null:growthValue(current,prior);
-    const value=metric==="growth"?(growth===null?"—":pct(growth)):formatExecutiveAmount(current,unit);
-    return '<td class="right '+(row.kind==="parent"?"parent-value":"")+'">'+value+"</td>";
-   }).join("");
-   return '<tr class="'+(row.kind==="parent"?"exec-parent":"exec-child")+'"><td>'+(row.kind==="child"?'<span class="exec-indent">↳ </span>':"")+esc(row.name)+"</td>"+cells+"</tr>";
-  }).join("")||'<tr><td class="empty">No observations available for the selected years.</td></tr>';
-  const note=cutoff?"Common cutoff: "+data.cutoff_date+" · fiscal day "+data.cutoff_fiscal_day:"Common cutoff: latest available observation in "+fy+" ("+data.cutoff_date+") · same fiscal day applied to all years";
+   const cells=years.map((fy,i)=>{const current=row.value(fy),prior=i<years.length-1?row.value(years[i+1]):null,growth=prior===null?null:growthValue(current,prior),value=metric==="growth"?(growth===null?"—":pct(growth)):formatExecutiveAmount(current,unit);return '<td class="right '+(row.kind!=="child"?"parent-value":"")+'">'+value+"</td>"}).join("");
+   return '<tr class="'+(row.kind==="child"?"exec-child":"exec-parent")+'"><td>'+(row.kind==="child"?'<span class="exec-indent">↳ </span>':"")+esc(row.name)+"</td>"+cells+"</tr>";
+  }).join("")||'<tr><td class="empty">No classified revenue observations.</td></tr>';
   const sub=document.querySelector("#page-overview .executive-card .sub");
-  if(sub)sub.textContent="Five-year comparison · "+note;
- }catch(e){
-  console.error("Executive comparison failed:",e);
-  body.innerHTML='<tr><td colspan="6" class="empty">Five-year comparison could not be loaded: '+esc(e.message||e)+'. Verify that migration 010_five_year_common_cutoff.sql has been run in Supabase. If it has, this may be a database timeout.</td></tr>';
- }
+  if(sub)sub.textContent="Five-year comparison · Classification 2 broad headings with Classification 1 detail · "+(manualCutoff?"Common cutoff: "+manualCutoff:"Full fiscal years / latest available fiscal calendar");
+ }catch(e){console.error("Executive comparison failed:",e);body.innerHTML='<tr><td colspan="6" class="empty">Classification-based comparison could not be loaded: '+esc(e.message||String(e))+'</td></tr>'}
 }
 async function loadHeatmapFromTables(fy,month){
  const {data:calendar,error:calendarError}=await db.from("fiscal_calendar").select("gregorian_date,nepali_date,fiscal_day").eq("fiscal_year",fy).eq("fiscal_month",month).order("gregorian_date",{ascending:true});
