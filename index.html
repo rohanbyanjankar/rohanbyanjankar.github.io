@@ -373,7 +373,8 @@ function updateBackgroundTask(title,message,percent=null,active=true){
 }
 function createExportWorker(){
  const source=`importScripts("https://cdn.jsdelivr.net/npm/papaparse@5","https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js");
- self.onmessage=function(event){try{const {rows,format}=event.data;let buffer,mime,extension;if(format==="csv"){const csv=Papa.unparse(rows);buffer=new TextEncoder().encode("\\uFEFF"+csv).buffer;mime="text/csv;charset=utf-8";extension="csv";}else{const ws=XLSX.utils.json_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Revenue raw data");buffer=XLSX.write(wb,{bookType:"xlsx",type:"array"});mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";extension="xlsx";}self.postMessage({buffer,mime,extension},[buffer]);}catch(error){self.postMessage({error:error&&error.message?error.message:String(error)});}};`;
+ const chunks=[];
+ self.onmessage=function(event){try{const message=event.data;if(message.type==="chunk"){chunks.push(message.rows||[]);return;}if(message.type!=="finish")return;const rows=chunks.flat();chunks.length=0;let buffer,mime,extension;if(message.format==="csv"){const csv=Papa.unparse(rows);buffer=new TextEncoder().encode("\\uFEFF"+csv).buffer;mime="text/csv;charset=utf-8";extension="csv";}else{const ws=XLSX.utils.json_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Revenue raw data");const raw=XLSX.write(wb,{bookType:"xlsx",type:"array"});buffer=raw instanceof ArrayBuffer?raw:raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength);mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";extension="xlsx";}self.postMessage({buffer,mime,extension},[buffer]);}catch(error){self.postMessage({error:error&&error.message?error.message:String(error)});}};`;
  const blob=new Blob([source],{type:"text/javascript"}),url=URL.createObjectURL(blob),worker=new Worker(url);
  return {worker,url};
 }
@@ -384,46 +385,46 @@ async function downloadRawRevenue(mode){
  const format=$("rawExportFormat").value||"csv",buttons=[$("downloadRawAll"),$("downloadRawPeriod")],status=$("rawDownloadStatus"),progress=$("rawDownloadProgress");
  buttons.forEach(b=>b.disabled=true);progress.style.width="0%";status.textContent="Starting background download…";
  updateBackgroundTask("Preparing raw data download","Connecting to the database…",0,true);
- let rows=[],offset=0;const pageSize=1000;let workerInfo=null;
+ let offset=0,rowCount=0;const pageSize=1000;let workerInfo=null;
  try{
   let countQuery=db.from("revenue_daily").select("id",{count:"exact",head:true});
   if(from)countQuery=countQuery.gte("collection_date",from);
   if(to)countQuery=countQuery.lte("collection_date",to);
-  const {count,error:countError}=await countQuery;
-  if(countError)throw countError;
+  const {count,error:countError}=await countQuery;if(countError)throw countError;
   const total=Number(count||0);
   if(!total){status.textContent="No records were found for the selected period.";updateBackgroundTask("Download complete","No records found for the selected period.",100,true);return toast("No revenue records found.");}
+  workerInfo=createExportWorker();
   updateBackgroundTask("Preparing raw data download","0 of "+total.toLocaleString()+" records retrieved · 0%",0,true);
   while(true){
    let q=db.from("revenue_daily").select("*").order("collection_date",{ascending:true}).order("id",{ascending:true}).range(offset,offset+pageSize-1);
    if(from)q=q.gte("collection_date",from);
    if(to)q=q.lte("collection_date",to);
    const {data,error}=await q;if(error)throw error;
-   const batch=data||[];rows.push(...batch);offset+=batch.length;
-   const pct=Math.min(99,Math.round(rows.length/total*100));
-   const message=rows.length.toLocaleString()+" of "+total.toLocaleString()+" records retrieved · "+pct+"%";
+   const batch=data||[];if(batch.length)workerInfo.worker.postMessage({type:"chunk",rows:batch});
+   rowCount+=batch.length;offset+=batch.length;
+   const pct=Math.min(99,Math.round(rowCount/total*100));
+   const message=rowCount.toLocaleString()+" of "+total.toLocaleString()+" records retrieved · "+pct+"%";
    status.textContent=message;progress.style.width=pct+"%";updateBackgroundTask("Preparing raw data download",message,pct,true);
-   if(batch.length<pageSize||rows.length>=total)break;
+   if(batch.length<pageSize||rowCount>=total)break;
    await new Promise(resolve=>setTimeout(resolve,0));
   }
-  if(!rows.length){status.textContent="No records were found for the selected period.";updateBackgroundTask("Download complete","No records found.",100,true);return toast("No revenue records found.");}
-  if(format==="xlsx"&&rows.length>1048575)throw new Error("Excel supports up to 1,048,575 data rows per worksheet. Please choose CSV for this export.");
+  if(!rowCount){status.textContent="No records were found for the selected period.";updateBackgroundTask("Download complete","No records found.",100,true);return toast("No revenue records found.");}
+  if(format==="xlsx"&&rowCount>1048575)throw new Error("Excel supports up to 1,048,575 data rows per worksheet. Please choose CSV for this export.");
   const stamp=from||to?(from||"beginning")+"_"+(to||"latest"):"all_time",filename="revenue_raw_data_"+stamp;
-  status.textContent="Retrieved "+rows.length.toLocaleString()+" records. Preparing "+format.toUpperCase()+" file…";
-  updateBackgroundTask("Preparing raw data download","Retrieved "+rows.length.toLocaleString()+" records. Building "+format.toUpperCase()+" file in the background…",null,true);
-  workerInfo=createExportWorker();
+  status.textContent="Retrieved "+rowCount.toLocaleString()+" records. Preparing "+format.toUpperCase()+" file…";
+  updateBackgroundTask("Preparing raw data download","Retrieved "+rowCount.toLocaleString()+" records. Building "+format.toUpperCase()+" file in the background…",null,true);
   const result=await new Promise((resolve,reject)=>{
    workerInfo.worker.onmessage=e=>e.data?.error?reject(new Error(e.data.error)):resolve(e.data);
    workerInfo.worker.onerror=e=>reject(new Error(e.message||"Background file generation failed."));
-   workerInfo.worker.postMessage({rows,format});
+   workerInfo.worker.postMessage({type:"finish",format});
   });
   workerInfo.worker.terminate();URL.revokeObjectURL(workerInfo.url);workerInfo=null;
   const blob=new Blob([result.buffer],{type:result.mime}),url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download=filename+"."+result.extension;document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),60000);
-  progress.style.width="100%";status.textContent="Download started · "+rows.length.toLocaleString()+" raw records · "+(from||"earliest available")+" to "+(to||"latest available")+".";
-  updateBackgroundTask("Download started",rows.length.toLocaleString()+" raw records. You can continue using other dashboard menus while your browser saves the file.",100,true);
-  toast(rows.length.toLocaleString()+" raw revenue records prepared for download.");
+  progress.style.width="100%";status.textContent="Download started · "+rowCount.toLocaleString()+" raw records · "+(from||"earliest available")+" to "+(to||"latest available")+".";
+  updateBackgroundTask("Download started",rowCount.toLocaleString()+" raw records. You can continue using other dashboard menus while your browser saves the file.",100,true);
+  toast(rowCount.toLocaleString()+" raw revenue records prepared for download.");
  }catch(e){
   console.error("Raw revenue export failed:",e);status.textContent="Download failed: "+(e.message||String(e));
   updateBackgroundTask("Download failed",e.message||String(e),0,true);toast("Raw data download failed: "+(e.message||String(e)));
