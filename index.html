@@ -53,6 +53,17 @@
  <div class="card kpi"><div class="kpi-label">Negative adjustments</div><div class="kpi-value" id="intelAdjustments">—</div><div class="kpi-foot" id="intelAdjustmentShare">Share of gross positive collections</div></div>
  <div class="card kpi"><div class="kpi-label">Top five revenue-head share</div><div class="kpi-value" id="intelTop5">—</div><div class="kpi-foot" id="intelTop10">Top ten share: —</div></div>
 </div>
+<div class="card" style="margin-top:14px;border-top:3px solid var(--gold)">
+ <div class="card-head"><div><div class="eyebrow">IMPORT-DEPENDENT TAX REVENUE</div><h3>How exposed is revenue to imports?</h3><div class="sub">VAT, excise and customs collections identified from revenue descriptions containing the Nepali keyword “आयात”.</div></div><span class="pill" id="intelImportCoverage">Keyword matched</span></div>
+ <div class="grid kpis">
+  <div class="card kpi"><div class="kpi-label">Import-linked tax revenue</div><div class="kpi-value" id="intelImportTotal">—</div><div class="kpi-foot" id="intelImportPrior">Previous comparable period</div></div>
+  <div class="card kpi"><div class="kpi-label">Share of total tax revenue</div><div class="kpi-value" id="intelImportShare">—</div><div class="kpi-foot" id="intelImportSharePrior">Previous period share</div></div>
+  <div class="card kpi"><div class="kpi-label">Import-linked growth</div><div class="kpi-value" id="intelImportGrowth">—</div><div class="kpi-foot" id="intelImportChange">Change in collections</div></div>
+  <div class="card kpi"><div class="kpi-label">Matched revenue heads</div><div class="kpi-value" id="intelImportHeads">—</div><div class="kpi-foot" id="intelImportRecords">Matched records</div></div>
+ </div>
+ <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Import-linked tax</th><th class="right">Current period</th><th class="right">Previous period</th><th class="right">Change</th><th class="right">Growth</th></tr></thead><tbody id="intelImportRows"><tr><td colspan="5" class="empty">Loading import-linked tax analysis…</td></tr></tbody></table></div>
+ <div class="sub" style="margin-top:10px">Classification is based on “आयात” appearing in the stored Nepali revenue description and the active Classification 1 mapping. It is a transparent keyword-based proxy, not a complete customs transaction-level reconciliation.</div>
+</div>
 <div class="grid split" style="margin-top:14px">
  <div class="card"><div class="card-head"><div><h3>What is driving the change?</h3><div class="sub">Largest positive contributions to the year-on-year movement</div></div><span class="pill">Revenue heads</span></div><div id="intelDrivers" class="policy-list"></div></div>
  <div class="card"><div class="card-head"><div><h3>Where is revenue weakening?</h3><div class="sub">Largest negative contributions to the year-on-year movement</div></div><span class="pill">Revenue heads</span></div><div id="intelDeclines" class="policy-list"></div></div>
@@ -459,9 +470,10 @@ async function refreshIntelligence(){
  const fy=$("intelFy").value||activeFY||$("fySelect").value||null;if(!fy)return;
  const b=$("intelRefresh");setBusy(b,true);
  try{
-  const {data,error}=await db.rpc("get_revenue_policy_intelligence",{p_fiscal_year:fy});
+  const [{data,error},{data:importData,error:importError}]=await Promise.all([db.rpc("get_revenue_policy_intelligence",{p_fiscal_year:fy}),db.rpc("get_import_linked_tax_analysis",{p_fiscal_year:fy})]);
   if(error)throw error;
   if(!data?.ready)throw new Error(data?.message||"No comparable fiscal data available.");
+  data.import_analysis=importError?null:importData;
   intelData=data;
   renderPolicyIntelligence(data);
   $("intelSubtitle").textContent="FY "+data.fiscal_year+" versus "+data.previous_fiscal_year+" · matched through fiscal day "+data.cutoff_day+".";
@@ -472,7 +484,25 @@ async function refreshIntelligence(){
   toast(e.message||String(e));
  }finally{setBusy(b,false,"↻ Update policy brief")}
 }
+function renderImportTaxAnalysis(a){
+ if(!a?.ready){
+  $("intelImportTotal").textContent="—";$("intelImportShare").textContent="—";$("intelImportGrowth").textContent="—";$("intelImportHeads").textContent="—";
+  $("intelImportRows").innerHTML='<tr><td colspan="5" class="empty">'+esc(a?.message||"Import-linked analysis could not be loaded.")+'</td></tr>';return;
+ }
+ $("intelImportTotal").textContent=shortMoney(a.import_linked_total);
+ $("intelImportPrior").textContent="Previous comparable period: NPR "+shortMoney(a.prior_import_linked_total);
+ $("intelImportShare").textContent=pct(a.share_of_tax_revenue);
+ $("intelImportSharePrior").textContent="Previous period share: "+pct(a.prior_share_of_tax_revenue);
+ $("intelImportGrowth").textContent=pct(a.import_linked_growth);
+ $("intelImportChange").textContent="Change: NPR "+shortMoney(Math.abs(Number(a.import_linked_change||0)));
+ $("intelImportHeads").textContent=fmt(a.matched_heads);
+ $("intelImportRecords").textContent=fmt(a.matched_records)+" matched records";
+ $("intelImportCoverage").textContent="आयात · day "+a.cutoff_day;
+ const rows=a.categories||[];
+ $("intelImportRows").innerHTML=rows.map(x=>'<tr><td>'+esc(x.tax)+'</td><td class="right">'+fmt(x.current)+'</td><td class="right">'+fmt(x.prior)+'</td><td class="right">'+signedMoney(Number(x.change||0))+'</td><td class="right">'+pct(x.growth)+'</td></tr>').join("")||'<tr><td colspan="5" class="empty">No records matched “आयात” within VAT, excise or customs classifications for this period.</td></tr>';
+}
 function renderPolicyIntelligence(d){
+ renderImportTaxAnalysis(d.import_analysis);
  const current=Number(d.current_net||0),prior=Number(d.prior_net||0),change=current-prior;
  const growth=prior!==0?(change/prior*100):null;
  const adjustment=Number(d.negative_adjustments||0),gross=Number(d.gross_positive||0);
