@@ -219,6 +219,24 @@ async function loadFiscalYears(){
  select.value=chosen;$("analyticsFy").value=chosen;$("intelFy").value=chosen;$("targetFy").value=chosen;$("annualFy").value=chosen;
  return years;
 }
+async function rpcWithRetry(name,args,options={}){
+ const attempts=Number(options.attempts||2),timeoutMs=Number(options.timeoutMs||30000);
+ let lastError=null;
+ for(let attempt=1;attempt<=attempts;attempt++){
+  try{
+   const result=await Promise.race([
+    db.rpc(name,args),
+    new Promise((_,reject)=>setTimeout(()=>reject(new Error(name+" timed out after "+Math.round(timeoutMs/1000)+" seconds")),timeoutMs))
+   ]);
+   if(result.error)throw new Error(result.error.message||String(result.error));
+   return result;
+  }catch(error){
+   lastError=error;
+   if(attempt<attempts)await new Promise(resolve=>setTimeout(resolve,1000));
+  }
+ }
+ throw lastError||new Error(name+" failed");
+}
 async function refreshDashboard(){const btn=$("refreshBtn");setBusy(btn,true);const fy=$("fySelect").value||null;let response;try{response=await db.rpc("get_revenue_dashboard",{p_fiscal_year:fy})}catch(e){setBusy(btn,false,"↻ Refresh");const message=e?.message||String(e);$("dataNotice").textContent="Dashboard connection interrupted: "+message+" · Select Refresh to retry."; $("dataNotice").className="notice red";$("asOf").innerHTML='<span class="cutoff-kicker">DATA CUT-OFF DATE</span><strong class="cutoff-date">Data temporarily unavailable</strong><span class="cutoff-meta">The dashboard will retry on refresh</span>';return}const {data,error}=response;setBusy(btn,false,"↻ Refresh");if(error){$("dataNotice").textContent="Dashboard query failed: "+error.message;$("dataNotice").className="notice red";$("asOf").innerHTML='<span class="cutoff-kicker">DATA CUT-OFF DATE</span><strong class="cutoff-date">Data query failed</strong><span class="cutoff-meta">See the database error above</span>';return toast(error.message)}dash=data;if(!data?.ready){$("dataNotice").textContent=data?.message||"Fiscal calendar has not been loaded.";return}activeFY=data.fiscal_year;if(!$("heatMonth").options.length)$("heatMonth").innerHTML=months.map((m,i)=>'<option value="'+(i+1)+'">'+m+'</option>').join("");$("heatMonth").value=String(data.fiscal_month||1);const cutoffParts=String(data.as_of||"").split("-").map(Number);const cutoffLabel=cutoffParts.length===3&&cutoffParts.every(Number.isFinite)?new Date(cutoffParts[0],cutoffParts[1]-1,cutoffParts[2]).toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"}):(data.as_of||"Date unavailable");const bsParts=String(data.nepali_date||"").trim().match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);const bsMonths=["Baishakh","Jestha","Ashadh","Shrawan","Bhadra","Ashwin","Kartik","Mangshir","Poush","Magh","Falgun","Chaitra"];const bsLabel=bsParts&&Number(bsParts[2])>=1&&Number(bsParts[2])<=12?bsParts[1]+" "+bsMonths[Number(bsParts[2])-1]+" "+Number(bsParts[3]):(data.nepali_date||"BS date unavailable");$("asOf").innerHTML='<span class="cutoff-kicker">DATA CUT-OFF DATE</span><strong class="cutoff-date cutoff-nepali">'+esc(bsLabel)+'</strong><span class="cutoff-meta cutoff-english">'+esc(cutoffLabel)+'</span><span class="cutoff-meta">FY '+esc(data.fiscal_year)+'</span>';$("dataNotice").textContent="Live database data · Classified totals exclude revenue heads marked as omitted in Classification Rules.";$("dataNotice").className="notice";$("kLatest").textContent=shortMoney(data.latest_day);$("kLatestDate").textContent=data.as_of+" · NPR";$("kYtd").textContent=shortMoney(data.ytd);$("kAchievement").textContent=data.achievement==null?"—":Number(data.achievement).toFixed(1)+"%";$("kGrowth").textContent=data.yoy_growth==null?"—":(data.yoy_growth>0?"+":"")+Number(data.yoy_growth).toFixed(1)+"%";$("kPrior").textContent=data.prior_ytd?("Prior-year YTD: NPR "+shortMoney(data.prior_ytd)):"Prior-year comparable data unavailable";renderTop(data.top_heads||[]);if($("analyticsFy").options.length)$("analyticsFy").value=data.fiscal_year;await refreshExecutiveViews()}
 
 let execCompareCache=[],heatPulse=null;
@@ -248,7 +266,7 @@ async function refreshExecutiveComparison(){
   const metric=$("execMetric").value,unit=$("execUnit").value,showDetails=$("execShowDetails").checked;
   body.innerHTML='<tr><td colspan="7" class="empty">Loading five-year revenue aggregates…</td></tr>';
   // Aggregate in PostgreSQL and transfer only grouped classification totals.
-  const {data,error}=await db.rpc("get_executive_five_year_comparison",{
+  const {data,error}=await rpcWithRetry("get_executive_five_year_comparison",{
    p_fiscal_year:selectedFy,
    p_cutoff_date:$("execCutoffDate").value||null
   });
@@ -322,7 +340,7 @@ async function refreshHeatmap(){
  const fy=$("fySelect").value||activeFY;if(!fy)return;
  const month=Number($("heatMonth").value||1),box=$("revenueHeatmap");box.innerHTML='<div class="empty">Loading daily observations…</div>';
  try{
-  let {data,error}=await db.rpc("get_executive_monthly_pulse",{p_fiscal_year:fy,p_fiscal_month:month});
+  let {data,error}=await rpcWithRetry("get_executive_monthly_pulse",{p_fiscal_year:fy,p_fiscal_month:month});
   if(error){
    console.warn("Monthly pulse RPC failed; loading daily heatmap from source tables:",error);
    try{data=await loadHeatmapFromTables(fy,month);}
@@ -388,7 +406,7 @@ async function refreshMajorTargetAchievement(){
  root.innerHTML='<div class="major-target-empty">Calculating target achievement…</div>';
  if(!fy){root.innerHTML='<div class="major-target-empty">Select a fiscal year.</div>';return}
  try{
-  const {data,error}=await db.rpc("get_major_heading_target_achievement",{p_fiscal_year:fy});
+  const {data,error}=await rpcWithRetry("get_major_heading_target_achievement",{p_fiscal_year:fy});
   if(requestId!==majorTargetRequest)return;
   if(error)throw error;
   const rows=data?.headings||[];
