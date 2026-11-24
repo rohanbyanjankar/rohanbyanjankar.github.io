@@ -576,7 +576,7 @@ async function refreshIntelligence(){
  const fy=$("intelFy").value||activeFY||$("fySelect").value||null;if(!fy)return;
  const b=$("intelRefresh");setBusy(b,true);
  try{
-  const [{data,error},{data:importData,error:importError},{data:taxShareData,error:taxShareError},{data:hhiData,error:hhiError},{data:hhiHistoryData,error:hhiHistoryError}]=await Promise.all([db.rpc("get_revenue_policy_intelligence",{p_fiscal_year:fy}),db.rpc("get_import_linked_tax_analysis",{p_fiscal_year:fy}),db.rpc("get_major_tax_head_contributions",{p_fiscal_year:fy}),db.rpc("get_revenue_concentration_hhi",{p_fiscal_year:fy}),db.rpc("get_revenue_concentration_hhi_history",{p_fiscal_year:fy,p_years:8})]);
+  const [{data,error},{data:importData,error:importError},{data:taxShareData,error:taxShareError},{data:hhiData,error:hhiError},{data:hhiHistoryData,error:hhiHistoryError}]=await Promise.all([db.rpc("get_revenue_policy_intelligence",{p_fiscal_year:fy}),db.rpc("get_import_linked_tax_analysis",{p_fiscal_year:fy}),db.rpc("get_major_tax_head_contributions",{p_fiscal_year:fy}),db.rpc("get_revenue_concentration_hhi",{p_fiscal_year:fy}),db.rpc("get_revenue_concentration_hhi_history",{p_fiscal_year:fy})]);
   if(error)throw error;
   if(!data?.ready)throw new Error(data?.message||"No comparable fiscal data available.");
   data.import_analysis=importError?null:importData;
@@ -690,7 +690,7 @@ function renderRevenueHHIHistory(result){
   if(note)note.textContent=result?.message||"Eight-year HHI history is unavailable. Apply the latest HHI history migration.";
   return;
  }
- if(note)note.textContent="Up to "+result.window_years+" fiscal years · same fiscal-day cutoff ("+result.cutoff_day+") in every year · Classification 1 · 0–10,000 scale.";
+ if(note)note.textContent="Each fiscal year is calculated independently using all observations available in that year. Completed years use their available full-year data; the selected current fiscal year is year-to-date and updates as data are added. Classification 1 · 0–10,000 scale.";
  intelHhiTrendChart=new Chart(canvas,{type:"line",data:{labels:rows.map(x=>x.fiscal_year),datasets:[{label:"HHI",data:rows.map(x=>Number(x.hhi)),borderColor:"#17345b",backgroundColor:"rgba(23,52,91,.10)",borderWidth:3,tension:.25,fill:true,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:"#c5a15c"}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>"HHI: "+Number(ctx.parsed.y).toFixed(2)}}},scales:{y:{beginAtZero:true,title:{display:true,text:"HHI points"},ticks:{precision:0}},x:{title:{display:true,text:"Fiscal year"}}}}});
  const exportButton=$("exportHhiHistory");
  if(exportButton&&!exportButton.dataset.bound){exportButton.dataset.bound="1";exportButton.onclick=()=>exportCsv("revenue_hhi_eight_years.csv",rows.map(x=>({fiscal_year:x.fiscal_year,hhi:x.hhi,effective_categories:x.effective_categories,active_categories:x.active_categories,largest_category_share:x.largest_category_share,total_positive_collections:x.total_positive,cutoff_day:result.cutoff_day,classification_level:"Classification 1"})));}
