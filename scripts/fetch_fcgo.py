@@ -10,7 +10,6 @@ import requests
 from bs4 import BeautifulSoup
 
 URL = "https://dailybudgetary.fcgo.gov.np/"
-LEGACY_URL = "https://dailybudgetary.fcgo.gov.np/"
 LEGACY_URL = "https://old.fcgo.gov.np/daily-budgetary-analysis"
 OUT = Path("data/fcgo-latest.json")
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; RevenueIntelligence/1.0)"}
