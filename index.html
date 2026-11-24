@@ -137,66 +137,37 @@ async function refreshExecutiveComparison(){
  try{
   const selectedFy=$("fySelect").value||activeFY;
   if(!selectedFy){body.innerHTML='<tr><td class="empty">Select a fiscal year to load comparisons.</td></tr>';return}
-  const metric=$("execMetric").value,unit=$("execUnit").value,manualCutoff=$("execCutoffDate").value||null,showDetails=$("execShowDetails").checked;
-  body.innerHTML='<tr><td colspan="7" class="empty">Calculating classification-based five-year comparison…</td></tr>';
-  // Supabase applies a row limit to each response. Fetch the complete calendar
-  // in pages so older years available in the selector are also available here.
-  let allCalendar=[],calendarOffset=0;const calendarPageSize=1000;
-  while(true){
-   const {data:calendar,error:calError}=await db.from("fiscal_calendar").select("gregorian_date,fiscal_year,fiscal_day").order("gregorian_date",{ascending:true}).range(calendarOffset,calendarOffset+calendarPageSize-1);
-   if(calError)throw calError;
-   allCalendar=allCalendar.concat(calendar||[]);
-   if(!calendar||calendar.length<calendarPageSize)break;
-   calendarOffset+=calendar.length;
-  }
+  const metric=$("execMetric").value,unit=$("execUnit").value,showDetails=$("execShowDetails").checked;
+  body.innerHTML='<tr><td colspan="7" class="empty">Loading five-year revenue aggregates…</td></tr>';
+  // Aggregate in PostgreSQL and transfer only grouped classification totals.
+  const {data,error}=await db.rpc("get_executive_five_year_comparison",{
+   p_fiscal_year:selectedFy,
+   p_cutoff_date:$("execCutoffDate").value||null
+  });
+  if(error)throw new Error(error.message.includes("get_executive_five_year_comparison")?
+   "The server-side comparison migration has not been applied in Supabase. Apply migration 20261124143000_executive_five_year_server_aggregation.sql.":error.message);
   if(requestId!==executiveComparisonRequest)return;
-  const normalizeFY=value=>String(value??"").trim().replace(/\\s+/g,"");
-  const selectedFYKey=normalizeFY(selectedFy);
-  const fys=(window.availableFiscalYears||[...new Set(allCalendar.map(x=>normalizeFY(x.fiscal_year)))].filter(Boolean)).map(normalizeFY).sort((a,b)=>Number(b.split("/")[0])-Number(a.split("/")[0]));
-  const selectedIndex=fys.findIndex(y=>y===selectedFYKey);
-  if(selectedIndex<0){const sample=[...new Set(allCalendar.map(x=>JSON.stringify(x.fiscal_year)))].slice(0,12);throw new Error("Selected FY '"+selectedFYKey+"' was not found. Calendar rows loaded: "+allCalendar.length+". Fiscal years returned: "+sample.join(", "));}
-  const years=fys.slice(selectedIndex,selectedIndex+5);
-  if(!years.length)throw new Error("No fiscal calendar years found.");
-  const selectedYearCalendar=allCalendar.filter(x=>normalizeFY(x.fiscal_year)===selectedFYKey).sort((a,b)=>a.gregorian_date.localeCompare(b.gregorian_date));
-  if(!selectedYearCalendar.length)throw new Error("No calendar dates found for the selected fiscal year.");
-  let cutoffDate=manualCutoff;
-  if(!cutoffDate){
-   const first=selectedYearCalendar[0].gregorian_date,last=selectedYearCalendar[selectedYearCalendar.length-1].gregorian_date;
-   const {data:latestRows,error:latestError}=await db.from("revenue_daily").select("collection_date").gte("collection_date",first).lte("collection_date",last).order("collection_date",{ascending:false}).limit(1);
-   if(latestError)throw latestError;
-   cutoffDate=latestRows?.[0]?.collection_date||null;
-  }
-  if(requestId!==executiveComparisonRequest)return;
-  if(!cutoffDate)throw new Error("No revenue observations found in the selected fiscal year.");
-  const cutoffCalendar=selectedYearCalendar.filter(x=>x.gregorian_date<=cutoffDate).sort((a,b)=>b.gregorian_date.localeCompare(a.gregorian_date))[0];
-  if(!cutoffCalendar)throw new Error("The selected cutoff date is before the selected fiscal year.");
-  const cutoffFiscalDay=Number(cutoffCalendar.fiscal_day);
-  const cal=allCalendar.filter(x=>years.includes(normalizeFY(x.fiscal_year))&&Number(x.fiscal_day)<=cutoffFiscalDay).map(x=>({...x,fiscal_year:normalizeFY(x.fiscal_year)}));
-  const dateToFy=new Map(cal.map(x=>[x.gregorian_date,x.fiscal_year]));
-  const dates=cal.map(x=>x.gregorian_date).sort();
-  if(!dates.length)throw new Error("No calendar dates available for the selected years and cutoff.");
-  const totals=new Map(),categories=new Map();
-  years.forEach(fy=>{totals.set(fy,0);categories.set(fy,new Map())});
-  let offset=0;const pageSize=1000;
-  while(true){
-   const {data,error}=await db.from("revenue_daily").select("id,collection_date,revenue_head_id,collection_amount").gte("collection_date",dates[0]).lte("collection_date",dates[dates.length-1]).order("collection_date",{ascending:true}).order("id",{ascending:true}).range(offset,offset+pageSize-1);
-   if(error)throw error;
-   for(const row of data||[]){
-    const fy=dateToFy.get(row.collection_date);if(!fy)continue;
-    const matched=classify(row.revenue_head_id);if(matched?.action==="omit")continue;
-    const amount=Number(row.collection_amount||0),broad=String(matched?.classification2||"Unclassified").trim()||"Unclassified",specific=String(matched?.classification1||"Unclassified").trim()||"Unclassified";
-    totals.set(fy,(totals.get(fy)||0)+amount);
-    const byBroad=categories.get(fy);if(!byBroad.has(broad))byBroad.set(broad,{total:0,specific:new Map()});
-    const group=byBroad.get(broad);group.total+=amount;group.specific.set(specific,(group.specific.get(specific)||0)+amount);
-   }
-   if(!data||data.length<pageSize)break;offset+=data.length;
+  if(!data?.ready)throw new Error(data?.message||"The five-year comparison is not available.");
+  const years=(data.years||[]).map(x=>String(x).trim());
+  if(!years.length)throw new Error("No fiscal years were returned for the comparison.");
+  const totals=new Map(years.map(fy=>[fy,0])),categories=new Map(years.map(fy=>[fy,new Map()]));
+  for(const row of data.rows||[]){
+   const fy=String(row.fiscal_year||"").trim();if(!categories.has(fy))continue;
+   const broad=String(row.classification2||"Unclassified").trim()||"Unclassified";
+   const specific=String(row.classification1||"Unclassified").trim()||"Unclassified";
+   const amount=Number(row.amount||0);
+   totals.set(fy,(totals.get(fy)||0)+amount);
+   const byBroad=categories.get(fy);
+   if(!byBroad.has(broad))byBroad.set(broad,{total:0,specific:new Map()});
+   const group=byBroad.get(broad);group.total+=amount;
+   group.specific.set(specific,(group.specific.get(specific)||0)+amount);
   }
   const taxKey=[...new Set(years.flatMap(fy=>[...categories.get(fy).keys()]))].find(x=>x.trim().toLowerCase()==="tax revenue")||"Tax revenue";
   const broadNames=[...new Set(years.flatMap(fy=>[...categories.get(fy).keys()]))].filter(x=>x.trim().toLowerCase()!=="tax revenue").sort((a,b)=>a.localeCompare(b));
   const taxSpecific=["VAT","Income Tax","Excise","Customs duty"];
   const rows=[{name:"Tax revenue",kind:"parent",value:fy=>categories.get(fy).get(taxKey)?.total||0}];
   taxSpecific.forEach(label=>{
-   const aliases=label==="Income Tax"?["income tax","income-tax"]: [label.toLowerCase()];
+   const aliases=label==="Income Tax"?["income tax","income-tax"]:[label.toLowerCase()];
    rows.push({name:label,kind:"child",value:fy=>{
     const group=categories.get(fy).get(taxKey);if(!group)return 0;
     return [...group.specific.entries()].filter(([name])=>aliases.includes(name.trim().toLowerCase())).reduce((sum,[,v])=>sum+v,0);
@@ -217,7 +188,7 @@ async function refreshExecutiveComparison(){
    return '<tr class="'+(row.kind==="child"?"exec-child":row.kind==="total"?"exec-total":"exec-parent")+'"><td>'+(row.kind==="child"?'<span class="exec-indent">↳ </span>':"")+esc(row.name)+"</td>"+cells+"</tr>";
   }).join("")||'<tr><td class="empty">No classified revenue observations.</td></tr>';
   const sub=document.querySelector("#page-overview .executive-card .sub");
-  if(sub)sub.textContent="Tax revenue is shown first with VAT, Income Tax, Excise and Customs. Other Classification 2 headings are shown with optional Classification 1 detail · Comparable through fiscal day "+cutoffFiscalDay+" ("+cutoffDate+") in each year.";
+  if(sub)sub.textContent="Tax revenue is shown first with VAT, Income Tax, Excise and Customs duty. Other Classification 2 headings are shown with optional Classification 1 detail · Comparable through fiscal day "+data.cutoff_fiscal_day+" ("+data.cutoff_date+") in each year.";
  }catch(e){if(requestId!==executiveComparisonRequest)return;console.error("Executive comparison failed:",e);body.innerHTML='<tr><td colspan="7" class="empty">Classification-based comparison could not be loaded: '+esc(e.message||String(e))+'</td></tr>'}
 }
 async function loadHeatmapFromTables(fy,month){
