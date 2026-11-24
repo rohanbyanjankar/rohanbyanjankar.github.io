@@ -163,12 +163,43 @@ async function refreshExecutiveComparison(){
   body.innerHTML='<tr><td colspan="6" class="empty">Five-year comparison could not be loaded: '+esc(e.message||e)+'. Verify that migration 010_five_year_common_cutoff.sql has been run in Supabase. If it has, this may be a database timeout.</td></tr>';
  }
 }
+async function loadHeatmapFromTables(fy,month){
+ const {data:calendar,error:calendarError}=await db.from("fiscal_calendar").select("gregorian_date,nepali_date,fiscal_day").eq("fiscal_year",fy).eq("fiscal_month",month).order("gregorian_date",{ascending:true});
+ if(calendarError)throw new Error("Fiscal calendar query failed: "+calendarError.message);
+ if(!calendar?.length)return {fiscal_year:fy,fiscal_month:month,days:[],fallback:true};
+ const dates=calendar.map(x=>x.gregorian_date),totals=new Map(dates.map(d=>[d,0]));
+ let offset=0;const pageSize=1000;
+ while(true){
+  const {data,error}=await db.from("revenue_daily").select("id,collection_date,revenue_head_id,collection_amount").in("collection_date",dates).order("collection_date",{ascending:true}).order("id",{ascending:true}).range(offset,offset+pageSize-1);
+  if(error)throw new Error("Daily revenue query failed: "+error.message);
+  for(const row of data||[]){
+   const matched=classify(row.revenue_head_id);
+   if(matched?.action==="omit")continue;
+   const date=row.collection_date;
+   totals.set(date,(totals.get(date)||0)+Number(row.collection_amount||0));
+  }
+  if(!data||data.length<pageSize)break;
+  offset+=data.length;
+ }
+ return {fiscal_year:fy,fiscal_month:month,fallback:true,days:calendar.map((d,i)=>({day:i+1,date:d.gregorian_date,nepali_date:d.nepali_date,amount:totals.get(d.gregorian_date)||0,cumulative_amount:totals.get(d.gregorian_date)||0,cumulative_yoy_growth:null,cumulative_categories:[]}))};
+}
 async function refreshHeatmap(){
  const fy=$("fySelect").value||activeFY;if(!fy)return;
  const month=Number($("heatMonth").value||1),box=$("revenueHeatmap");box.innerHTML='<div class="empty">Loading daily observations…</div>';
- const {data,error}=await db.rpc("get_executive_monthly_pulse",{p_fiscal_year:fy,p_fiscal_month:month});
- if(error){box.innerHTML='<div class="empty">Monthly pulse unavailable. Apply migration 009. '+esc(error.message)+'</div>';return}
- heatPulse=data;renderHeatmap();
+ try{
+  let {data,error}=await db.rpc("get_executive_monthly_pulse",{p_fiscal_year:fy,p_fiscal_month:month});
+  if(error){
+   console.warn("Monthly pulse RPC failed; loading daily heatmap from source tables:",error);
+   try{data=await loadHeatmapFromTables(fy,month);}
+   catch(fallbackError){throw new Error("Monthly pulse failed ("+error.message+"). Direct daily-data fallback also failed ("+fallbackError.message+").");}
+   data.fallback=true;
+  }
+  heatPulse=data;renderHeatmap();
+ }catch(e){
+  console.error("Daily revenue heatmap failed:",e);
+  box.innerHTML='<div class="empty">Daily heatmap could not be loaded: '+esc(e.message||String(e))+'</div>';
+  $("heatSummary").textContent="The dashboard could not retrieve daily revenue observations.";
+ }
 }
 function renderHeatmap(){
  const days=heatPulse?.days||[],box=$("revenueHeatmap");if(!days.length){box.innerHTML='<div class="empty">No fiscal-calendar dates found for this month.</div>';return}
@@ -178,7 +209,7 @@ function renderHeatmap(){
  days.forEach(d=>{const intensity=Number(d.amount||0)/max,level=intensity>=.75?4:intensity>=.5?3:intensity>=.25?2:1;cells.push('<button class="heat-day l'+level+(Number(d.amount)===0?' no-data':'')+'" data-heat-day="'+d.day+'" title="'+esc(d.nepali_date+' · Daily collection NPR '+fmt(d.amount))+'"><span class="heat-date">Day '+d.day+' · '+esc(d.nepali_date)+'</span><span class="heat-amount">'+shortMoney(d.amount)+'</span></button>')});
  box.innerHTML=cells.join("");box.querySelectorAll("[data-heat-day]").forEach(b=>b.onclick=()=>openDayDetail(Number(b.dataset.heatDay)));
  const total=days.reduce((s,d)=>s+Number(d.amount||0),0);
- $("heatSummary").textContent=heatPulse.fiscal_year+" · "+months[heatPulse.fiscal_month-1]+" · "+days.length+" days · Monthly collection NPR "+fmt(total)+" · Click a day to view fiscal-year cumulative collection.";
+ $("heatSummary").textContent=heatPulse.fiscal_year+" · "+months[heatPulse.fiscal_month-1]+" · "+days.length+" days · Monthly collection NPR "+fmt(total)+(heatPulse.fallback?" · Daily totals loaded directly; cumulative comparison is temporarily unavailable.":" · Click a day to view fiscal-year cumulative collection.");
 }
 function dayUnitValue(value){
  const unit=$("dayUnit")?.value||"billion";
@@ -186,19 +217,26 @@ function dayUnitValue(value){
  return (Number(value||0)/divisor).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})+" "+unit;
 }
 function renderDayDetail(d){
- $("dayTotal").textContent=dayUnitValue(d.cumulative_amount);
- $("dayTotalGrowth").textContent="Cumulative YoY: "+pct(d.cumulative_yoy_growth);
+ const fallback=!!heatPulse?.fallback;
+ $("dayTotal").textContent=dayUnitValue(fallback?d.amount:d.cumulative_amount);
+ $("dayTotalGrowth").textContent=fallback?"Daily YoY: unavailable":"Cumulative YoY: "+pct(d.cumulative_yoy_growth);
  const major=["VAT","Income Tax","Customs","Excise"];
  const categoryMap=new Map((d.cumulative_categories||[]).map(x=>[String(x.name).toLowerCase(),x]));
- $("dayCategoryRows").innerHTML=major.map(name=>{
-  const x=categoryMap.get(name.toLowerCase());
-  return '<tr><td>'+name+'</td><td class="right">'+dayUnitValue(x?.amount||0)+'</td><td class="right">'+pct(x?.cumulative_yoy_growth)+'</td></tr>';
- }).join("");
+ $("dayCategoryRows").innerHTML=fallback
+  ?'<tr><td colspan="3" class="empty">Category-level cumulative comparisons are temporarily unavailable.</td></tr>'
+  :major.map(name=>{
+   const x=categoryMap.get(name.toLowerCase());
+   return '<tr><td>'+name+'</td><td class="right">'+dayUnitValue(x?.amount||0)+'</td><td class="right">'+pct(x?.cumulative_yoy_growth)+'</td></tr>';
+  }).join("");
+ const label=document.querySelector("#dayDetailModal .day-kpis .kpi-label");
+ if(label)label.textContent=fallback?"Daily collection":"Fiscal-year cumulative collection";
+ const headings=document.querySelectorAll("#dayDetailModal table thead th");
+ if(fallback&&headings.length>=3){headings[1].textContent="Cumulative collection";headings[2].textContent="Cumulative YoY change"}
 }
 function openDayDetail(dayNo){
  const d=(heatPulse?.days||[]).find(x=>Number(x.day)===dayNo);if(!d)return;
  $("dayModalTitle").textContent=d.nepali_date+" · "+d.date;
- $("dayModalSub").textContent=heatPulse.fiscal_year+" · fiscal-year cumulative collection from Shrawan 1 through "+d.nepali_date;
+ $("dayModalSub").textContent=heatPulse.fiscal_year+(heatPulse.fallback?" · daily collection. The cumulative comparison service is currently unavailable.":" · fiscal-year cumulative collection from Shrawan 1 through "+d.nepali_date);
  renderDayDetail(d);
  $("dayDetailModal").classList.add("open");
  $("dayDetailModal").setAttribute("aria-modal","true");
