@@ -216,7 +216,7 @@ async function refreshExecutiveComparison(){
   }).join("")||'<tr><td class="empty">No classified revenue observations.</td></tr>';
   const sub=document.querySelector("#page-overview .executive-card .sub");
   if(sub)sub.textContent="Tax revenue is shown first with VAT, Income Tax, Excise and Customs. Other Classification 2 headings are shown with optional Classification 1 detail · Comparable through fiscal day "+cutoffFiscalDay+" ("+cutoffDate+") in each year.";
- }catch(e){console.error("Executive comparison failed:",e);body.innerHTML='<tr><td colspan="7" class="empty">Classification-based comparison could not be loaded: '+esc(e.message||String(e))+'</td></tr>'}
+ }catch(e){if(requestId!==executiveComparisonRequest)return;console.error("Executive comparison failed:",e);body.innerHTML='<tr><td colspan="7" class="empty">Classification-based comparison could not be loaded: '+esc(e.message||String(e))+'</td></tr>'}
 }
 async function loadHeatmapFromTables(fy,month){
  const {data:calendar,error:calendarError}=await db.from("fiscal_calendar").select("gregorian_date,nepali_date,fiscal_day").eq("fiscal_year",fy).eq("fiscal_month",month).order("gregorian_date",{ascending:true});
