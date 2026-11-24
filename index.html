@@ -576,13 +576,14 @@ async function refreshIntelligence(){
  const fy=$("intelFy").value||activeFY||$("fySelect").value||null;if(!fy)return;
  const b=$("intelRefresh");setBusy(b,true);
  try{
-  const [{data,error},{data:importData,error:importError},{data:taxShareData,error:taxShareError},{data:hhiData,error:hhiError},{data:hhiHistoryData,error:hhiHistoryError}]=await Promise.all([db.rpc("get_revenue_policy_intelligence",{p_fiscal_year:fy}),db.rpc("get_import_linked_tax_analysis",{p_fiscal_year:fy}),db.rpc("get_major_tax_head_contributions",{p_fiscal_year:fy}),db.rpc("get_revenue_concentration_hhi",{p_fiscal_year:fy}),db.rpc("get_revenue_concentration_hhi_history",{p_fiscal_year:fy})]);
+  const [{data,error},{data:importData,error:importError},{data:taxShareData,error:taxShareError},{data:hhiData,error:hhiError},{data:hhiHistoryData,error:hhiHistoryError},{data:taxGrowthData,error:taxGrowthError}]=await Promise.all([db.rpc("get_revenue_policy_intelligence",{p_fiscal_year:fy}),db.rpc("get_import_linked_tax_analysis",{p_fiscal_year:fy}),db.rpc("get_major_tax_head_contributions",{p_fiscal_year:fy}),db.rpc("get_revenue_concentration_hhi",{p_fiscal_year:fy}),db.rpc("get_revenue_concentration_hhi_history",{p_fiscal_year:fy}),db.rpc("get_tax_revenue_growth_decomposition",{p_fiscal_year:fy})]);
   if(error)throw error;
   if(!data?.ready)throw new Error(data?.message||"No comparable fiscal data available.");
   data.import_analysis=importError?null:importData;
   data.major_tax_contributions=taxShareError?null:taxShareData;
   data.hhi=hhiError?null:hhiData;
   data.hhi_history=hhiHistoryError?null:hhiHistoryData;
+  data.tax_growth_decomposition=taxGrowthError?null:taxGrowthData;
   intelData=data;
   renderPolicyIntelligence(data);
   $("intelSubtitle").textContent="FY "+data.fiscal_year+" versus "+data.previous_fiscal_year+" · matched through fiscal day "+data.cutoff_day+".";
