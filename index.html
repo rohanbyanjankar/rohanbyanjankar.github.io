@@ -303,8 +303,6 @@ let majorTargetRequest=0;
 async function refreshMajorTargetAchievement(){
  const root=$("majorTargetAchievement");if(!root)return;
  const requestId=++majorTargetRequest,fy=$("fySelect").value||activeFY;
- const activeRules=(rules||[]).filter(r=>r.is_active&&r.action!=="omit");
- if(!activeRules.length){root.innerHTML='<div class="major-target-empty">No active classification rules. Add classification rules to display target achievement by revenue heading.</div>';$("majorTargetNote").textContent="Target achievement by major revenue heading requires active classification rules.";return;}
  root.innerHTML='<div class="major-target-empty">Calculating target achievement…</div>';
  if(!fy){root.innerHTML='<div class="major-target-empty">Select a fiscal year.</div>';return}
  try{
@@ -312,6 +310,7 @@ async function refreshMajorTargetAchievement(){
   if(requestId!==majorTargetRequest)return;
   if(error)throw error;
   const rows=data?.headings||[];
+  if(Number(data?.active_rule_count||0)===0){root.innerHTML='<div class="major-target-empty">No active classification rules found in Supabase. Check the Classification Rules table and ensure at least one rule is active and not marked omit.</div>';$("majorTargetNote").textContent="No active rules were found by the database.";return;}
   if(!rows.length||data.cutoff_day==null){root.innerHTML='<div class="major-target-empty">No reported revenue observations for FY '+esc(fy)+'.</div>';return}
   root.innerHTML=rows.map(x=>{
    const actual=Number(x.actual||0),target=Number(x.target||0),ach=x.achievement==null?null:Number(x.achievement),bar=ach==null?0:Math.min(100,Math.max(0,ach));
