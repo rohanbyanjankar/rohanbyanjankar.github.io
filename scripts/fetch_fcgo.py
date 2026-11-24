@@ -15,6 +15,8 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; RevenueIntelligence/1.0)"}
 
 def number(value):
     value = value.replace(",", "").replace(" ", "").strip()
+    if re.search(r"[A-Za-z]", value):
+        return None
     value = re.sub(r"[^0-9.()-]", "", value)
     if not value or value in {"-", "—"}:
         return None
