@@ -41,23 +41,26 @@
 </section>
 <section class="page" id="page-analytics"><div id="analyticsLoading" class="hidden"><div class="analytics-loading-card"><div class="analytics-loading-orbit"></div><div class="analytics-loading-title">Calculating revenue analysis</div><div class="analytics-loading-sub">Retrieving fiscal-year data and historical patterns…</div><div class="analytics-loading-track"></div></div></div><div class="page-head"><div><div class="eyebrow">ANALYTICAL WORKSPACE</div><h1>Revenue analytics</h1><div class="sub">A guided view of revenue trends, seasonality, composition and the largest contributing revenue heads.</div></div><div class="controls"><label class="analytics-filter-label" for="analyticsFy">Fiscal year</label><select id="analyticsFy"></select><button class="btn" id="analyticsRefresh">↻ Refresh analysis</button></div></div><div class="analytics-intro"><div><strong>Executive analytical workspace</strong><span>Explore seasonality, daily collection patterns, revenue mix and short-term projections. Amounts are nominal NPR unless stated otherwise.</span></div><div class="analytics-legend"><span><i class="legend-dot navy"></i>Selected FY</span><span><i class="legend-dot gold"></i>Previous FY</span><span><i class="legend-dot teal"></i>Earlier FYs</span><span><i class="legend-dot forecast"></i>Forecast</span></div></div><div class="analytics-metrics"><div class="analytics-metric"><span>Selected FY collection</span><strong id="analyticsYtd">—</strong><small id="analyticsAsOf">Awaiting data</small></div><div class="analytics-metric"><span>Previous FY comparable</span><strong id="analyticsPrior">—</strong><small>Same fiscal-day cutoff</small></div><div class="analytics-metric"><span>Year-on-year growth</span><strong id="analyticsGrowth">—</strong><small>Comparable period</small></div><div class="analytics-metric"><span>Data available</span><strong id="analyticsDataDate">—</strong><small id="analyticsDataDateGregorian">Latest reported observation</small></div></div><div class="grid split analytics-top-grid"><div class="card analytics-card"><div class="card-head"><div><div class="eyebrow">SEASONALITY</div><h3>Monthly collection profile</h3><div class="sub">Monthly collections across the five selected fiscal years</div></div><div class="controls"><select id="analyticsMonthlyCategory" aria-label="Monthly chart revenue heading"><option value="Total">Total revenue</option><option value="Tax revenue">Tax revenue</option><option value="VAT">VAT</option><option value="Customs duty">Customs duty</option><option value="Excise">Excise</option><option value="Income Tax">Income tax</option><option value="Grants">Grants</option><option value="Non-tax revenue">Non-tax revenue</option><option value="Unclassified">Unclassified</option><option value="Vehicle Tax">Vehicle tax</option><option value="Interest and Dividends">Interest and dividends</option><option value="Royalty">Royalty</option></select><span class="pill" id="analyticsUnitLabel">Arba</span></div></div><div class="chart chart-sm"><canvas id="monthlyChart"></canvas></div><div class="chart-footnote" id="monthlyChartNote">Only months with reported observations are plotted. Future months are left blank.</div></div><div class="card analytics-card"><div class="card-head"><div><div class="eyebrow">REVENUE STRUCTURE</div><h3>Revenue composition treemap</h3><div class="sub">Cumulative collections by revenue head. Select a major revenue heading.</div></div><div class="controls"><select id="analyticsCategory"><option value="Total">Total revenue</option><option value="Tax revenue">Tax revenue</option><option value="VAT">VAT</option><option value="Customs duty">Customs duty</option><option value="Excise">Excise</option><option value="Income Tax">Income tax</option><option value="Grants">Grants</option><option value="Non-tax revenue">Non-tax revenue</option><option value="Unclassified">Unclassified</option><option value="Vehicle Tax">Vehicle tax</option><option value="Interest and Dividends">Interest and dividends</option><option value="Royalty">Royalty</option></select><button type="button" class="btn ghost treemap-expand" id="openTreemapLightbox" aria-label="Enlarge revenue treemap" title="Enlarge treemap">↗</button><select id="analyticsUnit"><option value="arba">Arba</option><option value="billion">Billion</option><option value="kharba">Kharba</option><option value="npr">NPR</option></select></div></div><div id="analyticsTreemap" class="analytics-tree"><div class="analytics-tree-empty">Loading revenue composition…</div></div><div class="chart-footnote">Revenue heads are ranked by collection, largest first. Amounts are shown in the selected unit.</div></div></div><div class="card analytics-card" style="margin-top:14px"><div class="card-head"><div><div class="eyebrow">DAILY PERFORMANCE</div><h3>Daily collection trajectory</h3><div class="sub">Compare equivalent Bikram Sambat dates across fiscal years</div></div><span class="pill">Up to five fiscal years</span></div><div class="analytics-axis-note"><span><strong>X-axis:</strong> Full fiscal year, Shrawan to Ashadh</span><span><strong>Y-axis:</strong> Daily collection (<span id="dailyUnitLabel">Arba</span>)</span><span>Future dates remain blank until reported.</span></div><div class="chart analytics-daily-chart"><canvas id="dailyCompareChart"></canvas></div><div class="chart-footnote">The chart spans the full fiscal year. Hover over a point to see its calendar date and collection amount. No zero values are imputed for future dates.</div></div><div class="card analytics-card" style="margin-top:14px"><div class="card-head"><div><div class="eyebrow">REVENUE HEADS</div><h3>Largest revenue contributors</h3><div class="sub">Ranked by collection in the selected fiscal year</div></div><span class="pill">Top revenue heads</span></div><div class="tablewrap"><table><thead><tr><th>Revenue code</th><th>Revenue head description</th><th>Classification</th><th class="right">Collection (NPR)</th></tr></thead><tbody id="analyticsRows"></tbody></table></div><div class="chart-footnote">Amounts reflect the active classification rules. Revenue heads marked as omitted are excluded.</div></div></section>
 <section class="page" id="page-fcgo">
-<div class="page-head"><div><div class="eyebrow">INDEPENDENT SOURCE RECONCILIATION</div><h1>FCGO data comparison</h1><div class="sub">Compare same-day revenue reported in Revenue Intelligence with the Financial Comptroller General Office (FCGO).</div></div><div class="controls"><a class="btn ghost" href="https://dailybudgetary.fcgo.gov.np/" target="_blank" rel="noopener">Open official FCGO portal ↗</a></div></div>
-<div class="notice blue">Enter the FCGO figures shown under <strong>Today</strong>, not <strong>Up to Today</strong>. The portal reports amounts in lakh rupees. FCGO notes that published figures are preliminary and may change after reconciliation.</div>
-<div class="card" style="margin-bottom:14px"><div class="card-head"><div><h3>FCGO daily figures</h3><div class="sub">Select the same Gregorian date in both sources and enter the FCGO amounts in lakh.</div></div><span class="pill">Source: FCGO</span></div><div class="formgrid">
+<div class="page-head"><div><div class="eyebrow">INDEPENDENT SOURCE RECONCILIATION</div><h1>FCGO data comparison</h1><div class="sub">Compare both daily and fiscal-year-to-date revenue reported by FCGO with Revenue Intelligence.</div></div><div class="controls"><a class="btn ghost" href="https://dailybudgetary.fcgo.gov.np/" target="_blank" rel="noopener">Open official FCGO portal ↗</a></div></div>
+<div class="notice blue">Enter figures from both <strong>Today</strong> and <strong>Up to Today</strong> columns. FCGO amounts are in lakh rupees. Use the same reporting date in both sources.</div>
+<div class="card" style="margin-bottom:14px"><div class="card-head"><div><h3>FCGO reported figures</h3><div class="sub">All four values should refer to the selected date. Enter amounts in lakh NPR.</div></div><span class="pill">Source: FCGO</span></div>
 <div class="field"><label for="fcgoDate">Comparison date (Gregorian)</label><input id="fcgoDate" type="date"></div>
-<div class="field"><label for="fcgoTotal">FCGO total revenue (Lakh NPR)</label><input id="fcgoTotal" type="number" min="0" step="0.01" placeholder="Enter Today value"></div>
-<div class="field"><label for="fcgoTax">FCGO tax revenue (Lakh NPR)</label><input id="fcgoTax" type="number" min="0" step="0.01" placeholder="Enter Today value"></div>
-</div><div class="controls" style="margin-top:14px"><button class="btn" id="fcgoCompareBtn">Compare same day</button><button class="btn ghost" id="fcgoClearBtn">Clear FCGO values</button></div><div class="sub" id="fcgoStatus" style="margin-top:10px">Choose a date and enter the two FCGO figures to begin.</div></div>
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:14px">
+<div class="card"><div class="eyebrow">TODAY</div><div class="field"><label for="fcgoTotal">Total revenue (Lakh NPR)</label><input id="fcgoTotal" type="number" min="0" step="0.01" placeholder="FCGO Today total revenue"></div><div class="field"><label for="fcgoTax">Tax revenue (Lakh NPR)</label><input id="fcgoTax" type="number" min="0" step="0.01" placeholder="FCGO Today tax revenue"></div></div>
+<div class="card"><div class="eyebrow">UP TO TODAY · FYTD</div><div class="field"><label for="fcgoTotalYtd">Cumulative total revenue (Lakh NPR)</label><input id="fcgoTotalYtd" type="number" min="0" step="0.01" placeholder="FCGO Up to Today total revenue"></div><div class="field"><label for="fcgoTaxYtd">Cumulative tax revenue (Lakh NPR)</label><input id="fcgoTaxYtd" type="number" min="0" step="0.01" placeholder="FCGO Up to Today tax revenue"></div></div>
+</div><div class="controls" style="margin-top:14px"><button class="btn" id="fcgoCompareBtn">Compare both periods</button><button class="btn ghost" id="fcgoClearBtn">Clear FCGO values</button></div><div class="sub" id="fcgoStatus" style="margin-top:10px">Choose a date and enter all four FCGO figures.</div></div>
 <div id="fcgoResults" class="hidden">
 <div class="grid kpis">
-<div class="card kpi"><div class="kpi-label">Total revenue discrepancy</div><div class="kpi-value" id="fcgoTotalPct">—</div><div class="kpi-foot" id="fcgoTotalDiff">Difference: —</div></div>
-<div class="card kpi"><div class="kpi-label">Tax revenue discrepancy</div><div class="kpi-value" id="fcgoTaxPct">—</div><div class="kpi-foot" id="fcgoTaxDiff">Difference: —</div></div>
-<div class="card kpi"><div class="kpi-label">Revenue Intelligence total</div><div class="kpi-value" id="fcgoInternalTotal">—</div><div class="kpi-foot">NPR</div></div>
-<div class="card kpi"><div class="kpi-label">Revenue Intelligence tax</div><div class="kpi-value" id="fcgoInternalTax">—</div><div class="kpi-foot">NPR</div></div>
+<div class="card kpi"><div class="kpi-label">Today: total revenue discrepancy</div><div class="kpi-value" id="fcgoTotalPct">—</div><div class="kpi-foot" id="fcgoTotalDiff">Difference: —</div></div>
+<div class="card kpi"><div class="kpi-label">Today: tax revenue discrepancy</div><div class="kpi-value" id="fcgoTaxPct">—</div><div class="kpi-foot" id="fcgoTaxDiff">Difference: —</div></div>
+<div class="card kpi"><div class="kpi-label">Up to today: total revenue discrepancy</div><div class="kpi-value" id="fcgoTotalYtdPct">—</div><div class="kpi-foot" id="fcgoTotalYtdDiff">Difference: —</div></div>
+<div class="card kpi"><div class="kpi-label">Up to today: tax revenue discrepancy</div><div class="kpi-value" id="fcgoTaxYtdPct">—</div><div class="kpi-foot" id="fcgoTaxYtdDiff">Difference: —</div></div>
 </div>
-<div class="card" style="margin-top:14px"><div class="card-head"><div><h3>Same-day reconciliation</h3><div class="sub" id="fcgoResultDate"></div></div><span class="pill" id="fcgoComparisonStatus">Compared</span></div><div class="tablewrap"><table><thead><tr><th>Indicator</th><th class="right">Revenue Intelligence (NPR)</th><th class="right">FCGO (NPR)</th><th class="right">Difference (NPR)</th><th class="right">Difference (% of FCGO)</th></tr></thead><tbody id="fcgoCompareRows"></tbody></table></div><div class="chart-footnote">Difference = Revenue Intelligence minus FCGO. Percentage discrepancy = difference divided by FCGO value, multiplied by 100. A positive value means Revenue Intelligence reports more; a negative value means it reports less.</div></div>
+<div class="card" style="margin-top:14px"><div class="card-head"><div><h3>Today comparison</h3><div class="sub" id="fcgoResultDate"></div></div></div><div class="tablewrap"><table><thead><tr><th>Indicator</th><th class="right">Revenue Intelligence (NPR)</th><th class="right">FCGO (NPR)</th><th class="right">Difference (NPR)</th><th class="right">Difference (% of FCGO)</th></tr></thead><tbody id="fcgoCompareRows"></tbody></table></div></div>
+<div class="card" style="margin-top:14px"><div class="card-head"><div><h3>Up to today comparison</h3><div class="sub">Fiscal-year-to-date cumulative collections from Shrawan 1 through the selected date.</div></div></div><div class="tablewrap"><table><thead><tr><th>Indicator</th><th class="right">Revenue Intelligence (NPR)</th><th class="right">FCGO (NPR)</th><th class="right">Difference (NPR)</th><th class="right">Difference (% of FCGO)</th></tr></thead><tbody id="fcgoYtdCompareRows"></tbody></table></div></div>
+<div class="chart-footnote">Difference = Revenue Intelligence minus FCGO. Percentage discrepancy = difference divided by the corresponding FCGO figure, multiplied by 100. Positive means Revenue Intelligence reports more; negative means it reports less.</div>
 </div>
-<div class="card" style="margin-top:14px"><div class="card-head"><div><h3>Source and methodology</h3></div></div><ul><li>Revenue Intelligence total is calculated from daily records after applying active classification rules and excluding omitted heads.</li><li>Revenue Intelligence tax revenue uses Classification 1 marked as Tax Revenue, with recognized major tax-head labels as a fallback.</li><li>FCGO figures must be copied from the selected date's <strong>Today</strong> column and entered in lakh.</li><li>The comparison is a monitoring check, not an accounting reconciliation. Differences may reflect timing, adjustments, classification, coverage or subsequent FCGO reconciliation.</li></ul><div class="sub">Official source: <a href="https://dailybudgetary.fcgo.gov.np/" target="_blank" rel="noopener">dailybudgetary.fcgo.gov.np</a></div></div>
+<div class="card" style="margin-top:14px"><div class="card-head"><div><h3>Source and methodology</h3></div></div><ul><li>Today values are calculated from records for the selected Gregorian date.</li><li>Up to Today values are calculated from Shrawan 1 through the selected date in the same fiscal year.</li><li>Revenue Intelligence amounts apply active classification rules and exclude revenue heads marked as omitted.</li><li>Tax revenue uses Classification 1 marked as Tax Revenue, with recognized major tax-head labels as a fallback.</li><li>FCGO amounts in lakh are converted to NPR before comparison.</li><li>This is a monitoring comparison, not an accounting reconciliation. Differences may reflect timing, adjustments, classification, coverage or subsequent FCGO reconciliation.</li></ul><div class="sub">Official source: <a href="https://dailybudgetary.fcgo.gov.np/" target="_blank" rel="noopener">dailybudgetary.fcgo.gov.np</a></div></div>
 </section>
 <section class="page" id="page-intelligence">
 <div class="page-head"><div><div class="eyebrow">REVENUE POLICY INTELLIGENCE</div><h1>Fiscal intelligence</h1><div class="sub" id="intelSubtitle">Comparable-period revenue performance, fiscal risks and policy signals.</div></div><div class="controls"><select id="intelFy"></select><button class="btn" id="intelRefresh">↻ Update policy brief</button><button class="btn ghost" id="exportIntel">Export policy data</button></div></div>
@@ -200,63 +203,68 @@ function wireNavigation(){if($("openTreemapLightbox"))$("openTreemapLightbox").o
 let fcgoInitialized=false;
 function initFcgoComparison(){
  if(fcgoInitialized)return;fcgoInitialized=true;
- const dateInput=$("fcgoDate");
- if(dash?.as_of)dateInput.value=dash.as_of;
- else dateInput.value=new Date().toISOString().slice(0,10);
+ $("fcgoDate").value=dash?.as_of||new Date().toISOString().slice(0,10);
 }
 function clearFcgoInputs(){
- $("fcgoTotal").value="";$("fcgoTax").value="";$("fcgoResults").classList.add("hidden");
- $("fcgoStatus").textContent="FCGO values cleared. Enter the figures from the official portal.";
+ ["fcgoTotal","fcgoTax","fcgoTotalYtd","fcgoTaxYtd"].forEach(id=>$(id).value="");
+ $("fcgoResults").classList.add("hidden");$("fcgoStatus").textContent="FCGO values cleared. Enter all four figures from the official portal.";
 }
 function fcgoMoney(n){return "NPR "+Number(n||0).toLocaleString("en-IN",{maximumFractionDigits:0});}
 function fcgoPercent(n){return n==null?"—":(n>0?"+":"")+Number(n).toFixed(2)+"%";}
+function fcgoRows(rows){return rows.map(r=>'<tr><td><strong>'+r[0]+'</strong></td><td class="right">'+fcgoMoney(r[1])+'</td><td class="right">'+fcgoMoney(r[2])+'</td><td class="right">'+fcgoMoney(r[3])+'</td><td class="right">'+fcgoPercent(r[4])+'</td></tr>').join("");}
 async function runFcgoComparison(){
- const date=$("fcgoDate").value,totalLakh=Number($("fcgoTotal").value),taxLakh=Number($("fcgoTax").value);
+ const date=$("fcgoDate").value;
+ const ids=["fcgoTotal","fcgoTax","fcgoTotalYtd","fcgoTaxYtd"];
+ const vals=ids.map(id=>$(id).value);
+ const nums=vals.map(Number);
  if(!date)return toast("Select the comparison date.");
- if($("fcgoTotal").value===""||$("fcgoTax").value===""||!Number.isFinite(totalLakh)||!Number.isFinite(taxLakh)||totalLakh<0||taxLakh<0)return toast("Enter valid, non-negative FCGO total revenue and tax revenue values in lakh.");
- if(taxLakh>totalLakh)return toast("FCGO tax revenue cannot exceed FCGO total revenue.");
- const btn=$("fcgoCompareBtn");setBusy(btn,true,"Compare same day");$("fcgoStatus").textContent="Loading Revenue Intelligence records for "+date+"…";$("fcgoResults").classList.add("hidden");
+ if(vals.some(v=>v==="")||nums.some(v=>!Number.isFinite(v)||v<0))return toast("Enter all four valid, non-negative FCGO figures in lakh.");
+ if(nums[1]>nums[0]||nums[3]>nums[2])return toast("Tax revenue cannot exceed total revenue for either Today or Up to Today.");
+ const btn=$("fcgoCompareBtn");setBusy(btn,true,"Compare both periods");$("fcgoStatus").textContent="Loading same-day and fiscal-year-to-date Revenue Intelligence records…";$("fcgoResults").classList.add("hidden");
  try{
-  const {data:calendar,error:calendarError}=await db.from("fiscal_calendar").select("nepali_date,fiscal_year").eq("gregorian_date",date).maybeSingle();
+  const {data:calendar,error:calendarError}=await db.from("fiscal_calendar").select("nepali_date,fiscal_year,gregorian_date").eq("gregorian_date",date).maybeSingle();
   if(calendarError)throw calendarError;
   if(!calendar)throw new Error("The selected date is not present in the fiscal calendar.");
-  let offset=0,total=0,tax=0,rowsSeen=0,skipped=0;
-  const pageSize=1000;
-  while(true){
-   const {data,error}=await db.from("revenue_daily").select("revenue_head_id,collection_amount").eq("collection_date",date).range(offset,offset+pageSize-1);
-   if(error)throw error;
-   const rows=data||[];
-   for(const row of rows){
-    const rule=classify(row.revenue_head_id);
-    if(rule.action==="omit"){skipped++;continue;}
-    const amount=Number(row.collection_amount||0);total+=amount;
-    const c1=String(rule.classification1||"").trim().toLowerCase();
-    const c2=String(rule.classification2||rule.classification||"").trim().toLowerCase();
-    const taxByBroad=c1==="tax revenue"||c1==="tax";
-    const taxBySpecific=["vat","value added tax","income tax","income-tax","customs","customs duty","excise","excise duty"].includes(c2);
-    if(taxByBroad||taxBySpecific)tax+=amount;
+  const {data:startRow,error:startError}=await db.from("fiscal_calendar").select("gregorian_date").eq("fiscal_year",calendar.fiscal_year).order("gregorian_date",{ascending:true}).limit(1).maybeSingle();
+  if(startError)throw startError;if(!startRow)throw new Error("Could not identify the first day of the selected fiscal year.");
+  const aggregates={today:{total:0,tax:0,rows:0,omitted:0},ytd:{total:0,tax:0,rows:0,omitted:0}};
+  async function accumulate(period,query){
+   let offset=0;const pageSize=1000;
+   while(true){
+    const {data,error}=await query.range(offset,offset+pageSize-1);if(error)throw error;
+    const rows=data||[];
+    for(const row of rows){
+     const rule=classify(row.revenue_head_id);
+     if(rule.action==="omit"){period.omitted++;continue;}
+     const amount=Number(row.collection_amount||0);period.total+=amount;
+     const c1=String(rule.classification1||"").trim().toLowerCase();
+     const c2=String(rule.classification2||rule.classification||"").trim().toLowerCase();
+     const taxByBroad=c1==="tax revenue"||c1==="tax";
+     const taxBySpecific=["vat","value added tax","income tax","income-tax","customs","customs duty","excise","excise duty"].includes(c2);
+     if(taxByBroad||taxBySpecific)period.tax+=amount;
+    }
+    period.rows+=rows.length;if(rows.length<pageSize)break;offset+=rows.length;
    }
-   rowsSeen+=rows.length;
-   if(rows.length<pageSize)break;
-   offset+=rows.length;
   }
-  const fcgoTotal=totalLakh*100000,fcgoTax=taxLakh*100000;
-  const totalDiff=total-fcgoTotal,taxDiff=tax-fcgoTax;
-  const totalPct=fcgoTotal===0?null:totalDiff/fcgoTotal*100;
-  const taxPct=fcgoTax===0?null:taxDiff/fcgoTax*100;
-  $("fcgoTotalPct").textContent=fcgoPercent(totalPct);$("fcgoTaxPct").textContent=fcgoPercent(taxPct);
-  $("fcgoTotalDiff").textContent="Difference: "+fcgoMoney(totalDiff);$("fcgoTaxDiff").textContent="Difference: "+fcgoMoney(taxDiff);
-  $("fcgoInternalTotal").textContent=fcgoMoney(total);$("fcgoInternalTax").textContent=fcgoMoney(tax);
-  $("fcgoResultDate").textContent=calendar.fiscal_year+" · "+calendar.nepali_date+" · "+date+" · "+rowsSeen.toLocaleString()+" source records · "+skipped.toLocaleString()+" omitted records excluded";
-  $("fcgoCompareRows").innerHTML=[
-   ["Total revenue",total,fcgoTotal,totalDiff,totalPct],
-   ["Tax revenue",tax,fcgoTax,taxDiff,taxPct]
-  ].map(r=>'<tr><td><strong>'+r[0]+'</strong></td><td class="right">'+fcgoMoney(r[1])+'</td><td class="right">'+fcgoMoney(r[2])+'</td><td class="right">'+fcgoMoney(r[3])+'</td><td class="right">'+fcgoPercent(r[4])+'</td></tr>').join("");
-  $("fcgoComparisonStatus").textContent=totalPct==null||taxPct==null?"Zero FCGO base":"Compared";
+  const select="revenue_head_id,collection_amount";
+  await accumulate(aggregates.today,db.from("revenue_daily").select(select).eq("collection_date",date).order("revenue_head_id"));
+  await accumulate(aggregates.ytd,db.from("revenue_daily").select(select).gte("collection_date",startRow.gregorian_date).lte("collection_date",date).order("collection_date").order("revenue_head_id"));
+  const fcgo={today:{total:nums[0]*100000,tax:nums[1]*100000},ytd:{total:nums[2]*100000,tax:nums[3]*100000}};
+  const calc=(ours,theirs)=>{const diff=ours-theirs;return [ours,theirs,diff,theirs===0?null:diff/theirs*100]};
+  const tr=aggregates.today,yr=aggregates.ytd;
+  const tTotal=calc(tr.total,fcgo.today.total),tTax=calc(tr.tax,fcgo.today.tax);
+  const yTotal=calc(yr.total,fcgo.ytd.total),yTax=calc(yr.tax,fcgo.ytd.tax);
+  $("fcgoTotalPct").textContent=fcgoPercent(tTotal[3]);$("fcgoTotalDiff").textContent="Difference: "+fcgoMoney(tTotal[2]);
+  $("fcgoTaxPct").textContent=fcgoPercent(tTax[3]);$("fcgoTaxDiff").textContent="Difference: "+fcgoMoney(tTax[2]);
+  $("fcgoTotalYtdPct").textContent=fcgoPercent(yTotal[3]);$("fcgoTotalYtdDiff").textContent="Difference: "+fcgoMoney(yTotal[2]);
+  $("fcgoTaxYtdPct").textContent=fcgoPercent(yTax[3]);$("fcgoTaxYtdDiff").textContent="Difference: "+fcgoMoney(yTax[2]);
+  $("fcgoResultDate").textContent=calendar.fiscal_year+" · "+calendar.nepali_date+" · "+date+" · Fiscal year starts "+startRow.gregorian_date;
+  $("fcgoCompareRows").innerHTML=fcgoRows([["Total revenue",...tTotal],["Tax revenue",...tTax]]);
+  $("fcgoYtdCompareRows").innerHTML=fcgoRows([["Total revenue",...yTotal],["Tax revenue",...yTax]]);
   $("fcgoResults").classList.remove("hidden");
-  $("fcgoStatus").textContent="Comparison completed. FCGO lakh values were converted to NPR. Verify that the entered values are from the selected date's Today column.";
+  $("fcgoStatus").textContent="Both comparisons completed. Today: "+tr.rows.toLocaleString()+" records. FYTD: "+yr.rows.toLocaleString()+" records. Omitted records excluded: "+(tr.omitted+yr.omitted).toLocaleString()+".";
  }catch(e){$("fcgoStatus").textContent="Comparison failed: "+(e.message||String(e));toast(e.message||String(e));}
- finally{setBusy(btn,false,"Compare same day");}
+ finally{setBusy(btn,false,"Compare both periods");}
 }
 function navigate(name){if(role==="viewer"&&!["overview","analytics","intelligence"].includes(name))return;document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));$("page-"+name).classList.add("active");document.querySelectorAll("[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===name));$("pageTitle").textContent=({overview:"Executive overview",analytics:"Revenue analytics",intelligence:"Fiscal intelligence",heads:"Revenue explorer",records:"Latest revenue records",download:"Download raw data",targets:"Targets & assumptions",uploads:"Data operations",rules:"Classification rules",users:"User administration",audit:"Audit trail",fcgo:"FCGO data"})[name];if(name==="analytics")refreshAnalytics();if(name==="records")loadLatestRecords();if(name==="intelligence")refreshIntelligence();if(name==="fcgo")initFcgoComparison();if(name==="rules")renderRules();if(name==="users")loadUsers();if(name==="audit")loadAudit()}
 async function loadFiscalYears(){
