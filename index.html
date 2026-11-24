@@ -146,7 +146,7 @@ async function boot(s){
  $("loginView").classList.add("hidden");$("appView").classList.remove("hidden");
  $("userEmail").textContent=p?.display_name||sessionUser.email||"Code-based viewer";
  document.querySelectorAll("[data-role]").forEach(el=>el.classList.toggle("hidden",!(role==="admin"||(role==="editor"&&el.dataset.role==="editor"))));
- document.querySelectorAll("[data-page]").forEach(el=>el.classList.toggle("hidden",role==="viewer"&&!["overview","analytics","intelligence","download"].includes(el.dataset.page)));
+ document.querySelectorAll("[data-page]").forEach(el=>el.classList.toggle("hidden",role==="viewer"&&!["overview","analytics","intelligence"].includes(el.dataset.page)));
  $("connection").textContent="Database connected";$("connection").className="pill green";
  wireNavigation();
 
@@ -763,6 +763,7 @@ function createExportWorker(){
  return {worker,url};
 }
 async function downloadRawRevenue(mode){
+ if(role==="viewer")return toast("Raw data downloads are not available to code-based viewers.");
  const from=mode==="period"?$("rawDateFrom").value:"",to=mode==="period"?$("rawDateTo").value:"";
  if(mode==="period"&&!from&&!to)return toast("Choose at least one date to define the selected period.");
  if(from&&to&&from>to)return toast("Start date must not be later than end date.");
