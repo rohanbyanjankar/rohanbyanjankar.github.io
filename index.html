@@ -599,7 +599,7 @@ function pieSidePaths(cx,cy,rx,ry,start,end,depth){
  const paths=[];let a=start;
  while(a<end-0.001){
   let b=Math.min(end,180);
-  if(a>=180||a<0&&b<=0){a=b;continue}
+  if(a>=180)break;if(a<0&&b<=0){a=b;continue}
   if(a<0){a=0;continue}
   if(b<=a){a=Math.min(end,360);continue}
   const p1=piePoint(cx,cy,rx,ry,a),p2=piePoint(cx,cy,rx,ry,b);
@@ -635,6 +635,9 @@ function drawTaxPie(containerId,legendId,detailId,rows,field,kind,fy){
  svg.push('<text x="'+cx+'" y="255" text-anchor="middle" fill="#75849a" font-size="11" font-weight="600">FY '+esc(fy)+'</text></svg>');
  root.innerHTML=svg.join("");
  legend.innerHTML=vals.map((x,i)=>'<button type="button" data-tax-legend="'+kind+'" data-tax-index="'+i+'" aria-pressed="'+(taxPieState[kind]!==i)+'"><span class="tax-pie-swatch" style="background:'+taxPieColors[i]+'"></span>'+x.name+'</button>').join("");
+ const activate=index=>{taxPieState[kind]=taxPieState[kind]===index?null:index;renderMajorTaxContributions(intelData?.major_tax_contributions)};
+ root.querySelectorAll("[data-tax-pie]").forEach(el=>el.addEventListener("click",()=>activate(Number(el.dataset.taxIndex))));
+ legend.querySelectorAll("[data-tax-legend]").forEach(el=>el.addEventListener("click",()=>activate(Number(el.dataset.taxIndex))));
  const selected=taxPieState[kind],x=selected==null?null:vals[selected];
  detail.textContent=x?x.name+" · "+x.value.toFixed(1)+"% of "+(kind==="revenue"?"total revenue":"total tax revenue")+" · "+fy:"Click a slice or legend item to isolate a tax head. Total: "+total.toFixed(1)+"%.";
 }
