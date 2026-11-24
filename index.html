@@ -174,7 +174,7 @@ async function refreshExecutiveComparison(){
   const taxKey=[...new Set(years.flatMap(fy=>[...categories.get(fy).keys()]))].find(x=>x.trim().toLowerCase()==="tax revenue")||"Tax revenue";
   const broadNames=[...new Set(years.flatMap(fy=>[...categories.get(fy).keys()]))].filter(x=>x.trim().toLowerCase()!=="tax revenue").sort((a,b)=>a.localeCompare(b));
   const taxSpecific=["VAT","Income Tax","Excise","Customs duty"];
-  const rows=[{name:"Tax revenue",kind:"parent",value:fy=>categories.get(fy).get(taxKey)?.total||0}];
+  const rows=[{name:"Total Revenue",kind:"total",value:fy=>totals.get(fy)||0},{name:"Tax revenue",kind:"parent",value:fy=>categories.get(fy).get(taxKey)?.total||0}];
   taxSpecific.forEach(label=>{
    const aliases=label==="Income Tax"?["income tax","income-tax"]:[label.toLowerCase()];
    rows.push({name:label,kind:"child",value:fy=>{
@@ -189,7 +189,6 @@ async function refreshExecutiveComparison(){
     details.forEach(specific=>rows.push({name:specific,kind:"child",value:fy=>categories.get(fy).get(broad)?.specific.get(specific)||0}));
    }
   });
-  rows.push({name:"Total classified revenue",kind:"total",value:fy=>totals.get(fy)||0});
   if(requestId!==executiveComparisonRequest)return;
   $("execCompareHead").innerHTML="<tr><th>Revenue heading"+(showDetails?" / Classification 1":"")+"</th>"+years.map(fy=>'<th class="right">'+esc(fy)+(metric==="growth"?" · YoY":"")+"</th>").join("")+"</tr>";
   $("execCompareRows").innerHTML=rows.map(row=>{
