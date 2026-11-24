@@ -89,10 +89,10 @@ function installGlobalDatabaseLoader(){
  window.__revenueDbLoaderInstalled=true;
  const originalFetch=window.fetch.bind(window),overlay=$("globalDbLoading");
  let pending=0,showTimer=null;
- const update=()=>{if(!overlay)return;if(pending>0)overlay.classList.add("visible");else overlay.classList.remove("visible")};
+ const update=()=>{if(!overlay)return;if(window.__revenueSuppressGlobalLoader){overlay.classList.remove("visible");return}if(pending>0)overlay.classList.add("visible");else overlay.classList.remove("visible")};window.__updateRevenueGlobalLoader=update;
  window.fetch=(...args)=>{
   const requestUrl=typeof args[0]==="string"?args[0]:(args[0]?.url||"");
-  const tracks=requestUrl.startsWith(CONFIG.url)||requestUrl.includes(".supabase.co/rest/v1/")||requestUrl.includes(".supabase.co/auth/v1/");
+  const tracks=!window.__revenueSuppressGlobalLoader&&(requestUrl.startsWith(CONFIG.url)||requestUrl.includes(".supabase.co/rest/v1/")||requestUrl.includes(".supabase.co/auth/v1/"));
   if(!tracks)return originalFetch(...args);
   pending++;
   if(pending===1)showTimer=setTimeout(update,160);
@@ -430,6 +430,7 @@ function createExportWorker(){
  return {worker,url};
 }
 async function downloadRawRevenue(mode){
+ window.__revenueSuppressGlobalLoader=true;if($("globalDbLoading"))$("globalDbLoading").classList.remove("visible");
  const from=mode==="period"?$("rawDateFrom").value:"",to=mode==="period"?$("rawDateTo").value:"";
  if(mode==="period"&&!from&&!to)return toast("Choose at least one date to define the selected period.");
  if(from&&to&&from>to)return toast("Start date must not be later than end date.");
@@ -482,6 +483,7 @@ async function downloadRawRevenue(mode){
  }finally{
   if(workerInfo){workerInfo.worker.terminate();URL.revokeObjectURL(workerInfo.url);}
   buttons.forEach(b=>b.disabled=false);
+  window.__revenueSuppressGlobalLoader=false;if(window.__updateRevenueGlobalLoader)window.__updateRevenueGlobalLoader();
  }
 }
 let latestRecordsCache=[];async function loadLatestRecords(){const body=$("latestRecordsRows");body.innerHTML='<tr><td colspan="6" class="empty">Loading latest records…</td></tr>';const {data,error}=await db.from("revenue_daily").select("id,collection_date,revenue_head_id,revenue_description,collection_amount,upload_id").order("collection_date",{ascending:false}).order("id",{ascending:false}).limit(200);if(error){body.innerHTML='<tr><td colspan="6" class="empty">Could not load records: '+esc(error.message)+'</td></tr>';$("recordsSummary").textContent="Database query failed.";return toast(error.message)}latestRecordsCache=data||[];const latest=latestRecordsCache[0]?.collection_date||"No records";const earliest=latestRecordsCache.at(-1)?.collection_date||"No records";$("recordsSummary").textContent="Showing the latest "+latestRecordsCache.length+" stored records · newest: "+latest+" · oldest in this view: "+earliest;$("latestRecordCount").textContent=latestRecordsCache.length+" records";body.innerHTML=latestRecordsCache.map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(x.collection_date)+'</td><td>'+esc(x.revenue_head_id)+'</td><td>'+esc(x.revenue_description||"")+"</td><td class=\"right\">"+fmt(x.collection_amount)+'</td><td>'+esc(x.upload_id||"—")+'</td></tr>').join("")||'<tr><td colspan="6" class="empty">No revenue records are stored.</td></tr>'}function exportLatestRecords(){if(!latestRecordsCache.length)return toast("There are no records to export.");exportCsv("latest_200_revenue_records.csv",latestRecordsCache)}
