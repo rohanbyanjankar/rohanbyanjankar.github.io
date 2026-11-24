@@ -75,7 +75,7 @@
 </div>
 <div class="card" style="margin-top:14px"><div class="card-head"><div><h3>Policy watchlist</h3><div class="sub">Evidence-based signals for further investigation, not automatic policy prescriptions</div></div></div><div id="intelWatchlist" class="policy-watchlist"></div></div>
 <div class="card" style="margin-top:14px"><div class="card-head"><div><h3>Revenue category contribution</h3><div class="sub">Contribution to the total change in comparable-period collections</div></div><button class="btn ghost" id="exportCategories">Export categories</button></div><div class="tablewrap"><table><thead><tr><th>Classification 2</th><th class="right">Current period</th><th class="right">Previous period</th><th class="right">Change</th><th class="right">Growth</th><th class="right">Contribution to change</th></tr></thead><tbody id="intelCategoryRows"></tbody></table></div></div>
-<div class="card" style="margin-top:14px"><div class="card-head"><div><div class="eyebrow">GROWTH DECOMPOSITION</div><h3>Category contributions to tax revenue change</h3><div class="sub">Classification 1 categories within tax revenue, compared through the same fiscal day.</div></div><button class="btn ghost" id="exportGrowthDecomp">Export</button></div><div id="intelGrowthDecomp" class="decomp-list">Loading tax contribution analysis…</div></div><div class="card tax-structure-card" style="margin-top:14px">
+<div class="grid split" style="margin-top:14px"><div class="card"><div class="card-head"><div><div class="eyebrow">GROWTH DECOMPOSITION</div><h3>Category contributions to total revenue change</h3><div class="sub">Classification 1 categories, same fiscal-day comparison.</div></div><button class="btn ghost" id="exportTotalGrowthDecomp">Export</button></div><div id="intelTotalGrowthDecomp" class="decomp-list">Loading total revenue contribution analysis…</div></div><div class="card"><div class="card-head"><div><div class="eyebrow">GROWTH DECOMPOSITION</div><h3>Category contributions to tax revenue change</h3><div class="sub">Classification 1 tax categories, same fiscal-day comparison.</div></div><button class="btn ghost" id="exportTaxGrowthDecomp">Export</button></div><div id="intelTaxGrowthDecomp" class="decomp-list">Loading tax contribution analysis…</div></div></div><div class="card tax-structure-card" style="margin-top:14px">
  <div class="card-head"><div><div class="eyebrow">THREE-YEAR TAX STRUCTURE</div><h3>Major tax head contributions</h3><div class="sub">Compare VAT, Income Tax, Customs duty and Excise across the three latest fiscal years.</div></div><div class="tax-structure-actions"><label for="intelTaxMetric">Indicator</label><select id="intelTaxMetric" aria-label="Tax contribution indicator"><option value="share_total">Share of total revenue (%)</option><option value="share_tax">Share of total tax revenue (%)</option><option value="growth">Year-on-year change (%)</option></select><button class="btn ghost" id="exportMajorTaxContributions">Export data</button></div></div>
  <div id="intelTaxBarLegend" class="tax-bar-legend" aria-label="Fiscal year legend"></div>
  <div id="intelTaxBars" class="tax-bars" aria-live="polite"><div class="empty">Loading three-year comparison…</div></div>
@@ -576,7 +576,7 @@ async function refreshIntelligence(){
  const fy=$("intelFy").value||activeFY||$("fySelect").value||null;if(!fy)return;
  const b=$("intelRefresh");setBusy(b,true);
  try{
-  const [{data,error},{data:importData,error:importError},{data:taxShareData,error:taxShareError},{data:hhiData,error:hhiError},{data:hhiHistoryData,error:hhiHistoryError},{data:taxGrowthData,error:taxGrowthError}]=await Promise.all([db.rpc("get_revenue_policy_intelligence",{p_fiscal_year:fy}),db.rpc("get_import_linked_tax_analysis",{p_fiscal_year:fy}),db.rpc("get_major_tax_head_contributions",{p_fiscal_year:fy}),db.rpc("get_revenue_concentration_hhi",{p_fiscal_year:fy}),db.rpc("get_revenue_concentration_hhi_history",{p_fiscal_year:fy}),db.rpc("get_tax_revenue_growth_decomposition",{p_fiscal_year:fy})]);
+  const [{data,error},{data:importData,error:importError},{data:taxShareData,error:taxShareError},{data:hhiData,error:hhiError},{data:hhiHistoryData,error:hhiHistoryError},{data:taxGrowthData,error:taxGrowthError},{data:totalGrowthData,error:totalGrowthError}]=await Promise.all([db.rpc("get_revenue_policy_intelligence",{p_fiscal_year:fy}),db.rpc("get_import_linked_tax_analysis",{p_fiscal_year:fy}),db.rpc("get_major_tax_head_contributions",{p_fiscal_year:fy}),db.rpc("get_revenue_concentration_hhi",{p_fiscal_year:fy}),db.rpc("get_revenue_concentration_hhi_history",{p_fiscal_year:fy}),db.rpc("get_tax_revenue_growth_decomposition",{p_fiscal_year:fy}),db.rpc("get_total_revenue_growth_decomposition",{p_fiscal_year:fy})]);
   if(error)throw error;
   if(!data?.ready)throw new Error(data?.message||"No comparable fiscal data available.");
   data.import_analysis=importError?null:importData;
@@ -584,6 +584,7 @@ async function refreshIntelligence(){
   data.hhi=hhiError?null:hhiData;
   data.hhi_history=hhiHistoryError?null:hhiHistoryData;
   data.tax_growth_decomposition=taxGrowthError?null:taxGrowthData;
+  data.total_growth_decomposition=totalGrowthError?null:totalGrowthData;
   intelData=data;
   renderPolicyIntelligence(data);
   $("intelSubtitle").textContent="FY "+data.fiscal_year+" versus "+data.previous_fiscal_year+" · matched through fiscal day "+data.cutoff_day+".";
@@ -641,13 +642,13 @@ function renderImportTaxAnalysis(a){
  $("intelImportRows").innerHTML=rows.map(x=>'<tr><td>'+esc(x.tax)+'</td><td class="right">'+fmt(x.current)+'</td><td class="right">'+fmt(x.prior)+'</td><td class="right">'+signedMoney(Number(x.change||0))+'</td><td class="right">'+pct(x.growth)+'</td></tr>').join("")||'<tr><td colspan="5" class="empty">No records matched “आयात” within VAT, excise or customs classifications for this period.</td></tr>';
 }
 let intelBriefText="";
-function renderGrowthDecomposition(result){
- const root=$("intelGrowthDecomp");if(!root)return;
+function renderGrowthDecomposition(result,rootId,buttonId,fileName,label){
+ const root=$(rootId);if(!root)return;
  const rows=(result?.categories||[]).map(x=>({category:x.category,change:Number(x.change||0),current:Number(x.current||0),prior:Number(x.prior||0),growth:x.growth})).filter(x=>Number.isFinite(x.change)).sort((a,b)=>Math.abs(b.change)-Math.abs(a.change));
- if(!rows.length){root.textContent="No tax-category contribution data available for this comparable period.";return}
+ if(!rows.length){root.textContent="No "+label+" contribution data available for this comparable period.";return}
  const max=Math.max(1,...rows.map(x=>Math.abs(x.change)));
  root.innerHTML=rows.map(x=>'<div class="decomp-row"><div class="decomp-label"><strong>'+esc(x.category)+'</strong><span>'+signedMoney(x.change)+'</span></div><div class="decomp-track"><div class="decomp-fill '+(x.change<0?'negative':'')+'" style="width:'+Math.max(1,Math.abs(x.change)/max*100)+'%"></div></div></div>').join("");
- const btn=$("exportGrowthDecomp");if(btn&&!btn.dataset.bound){btn.dataset.bound="1";btn.onclick=()=>exportCsv("tax_revenue_growth_decomposition.csv",rows)}
+ const btn=$(buttonId);if(btn&&!btn.dataset.bound){btn.dataset.bound="1";btn.onclick=()=>exportCsv(fileName,rows)}
 }
 function renderIntelBrief(d,m){
  const lines=[];
@@ -739,7 +740,8 @@ function renderPolicyIntelligence(d){
  if(weakest)watch.push(["Largest declining revenue head",weakest.description+" reduced collections by "+fmtN(Math.abs(Number(weakest.change||0)))+" against the comparable period. Investigate the relevant tax base, compliance and administrative factors."]);
  if(!watch.length)watch.push(["No automatic warning triggered","The available indicators do not cross the dashboard's screening thresholds. Continue monitoring monthly performance and the composition of growth."]);
  $("intelWatchlist").innerHTML=watch.map((x,i)=>'<div class="policy-watch-row"><span class="policy-watch-number">'+(i+1)+'</span><div><strong>'+esc(x[0])+'</strong><p>'+esc(x[1])+'</p></div></div>').join("");
- renderGrowthDecomposition(d.tax_growth_decomposition);
+ renderGrowthDecomposition(d.total_growth_decomposition,"intelTotalGrowthDecomp","exportTotalGrowthDecomp","total_revenue_growth_decomposition.csv","total revenue");
+ renderGrowthDecomposition(d.tax_growth_decomposition,"intelTaxGrowthDecomp","exportTaxGrowthDecomp","tax_revenue_growth_decomposition.csv","tax revenue");
 }
 function renderIntelCategories(rows){$("intelCategoryRows").innerHTML=rows.map(x=>'<tr><td>'+esc(x.category)+'</td><td class="right">'+fmt(x.current)+'</td><td class="right">'+fmt(x.prior)+'</td><td class="right">'+signedMoney(Number(x.current||0)-Number(x.prior||0))+'</td><td class="right">'+pct(x.growth)+'</td><td class="right">'+pct(x.share)+'</td></tr>').join("")||'<tr><td colspan="6" class="empty">No category data available.</td></tr>'}
 function renderIntelHeads(){const rows=intelData?.classification_heads||intelData?.heads||[],q=($("intelHeadSearch")?.value||"").toLowerCase();const filtered=rows.filter(x=>(String(x.code)+" "+String(x.description)+" "+String(x.classification1||"")+" "+String(x.classification2||x.category||"")).toLowerCase().includes(q));$("intelHeadRows").innerHTML=filtered.map(x=>'<tr><td>'+esc(x.code)+'</td><td>'+esc(x.description)+'</td><td>'+esc(x.classification1||"Unclassified") +'</td><td>'+esc(x.classification2||x.category||"Unclassified")+'</td><td class="right">'+fmt(x.current)+'</td><td class="right">'+fmt(x.prior)+'</td><td class="right">'+signedMoney(Number(x.change||0))+'</td><td class="right">'+pct(x.growth)+'</td></tr>').join("")||'<tr><td colspan="8" class="empty">No matching revenue heads.</td></tr>'}
