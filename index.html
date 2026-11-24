@@ -397,7 +397,7 @@ async function downloadRawRevenue(mode){
   const stamp=from||to?(from||"beginning")+"_"+(to||"latest"):"all_time";
   const filename="revenue_raw_data_"+stamp;
   if(csv){
-   const output=Papa.unparse(rows),blob=new Blob(["\\ufeff"+output],{type:"text/csv;charset=utf-8"});
+   const output=Papa.unparse(rows),blob=new Blob(["\ufeff"+output],{type:"text/csv;charset=utf-8"});
    const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=filename+".csv";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
   }else{
    if(!window.XLSX)throw new Error("Excel export library did not load. Please choose CSV or reload the page.");
