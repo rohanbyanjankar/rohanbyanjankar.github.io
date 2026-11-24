@@ -152,7 +152,7 @@ async function refreshExecutiveComparison(){
   if(requestId!==executiveComparisonRequest)return;
   const normalizeFY=value=>String(value??"").trim().replace(/\\s+/g,"");
   const selectedFYKey=normalizeFY(selectedFy);
-  const fys=(window.availableFiscalYears||[...new Set(allCalendar.map(x=>normalizeFY(x.fiscal_year)))].filter(Boolean)).map(normalizeFY);
+  const fys=(window.availableFiscalYears||[...new Set(allCalendar.map(x=>normalizeFY(x.fiscal_year)))].filter(Boolean)).map(normalizeFY).sort((a,b)=>Number(b.split("/")[0])-Number(a.split("/")[0]));
   const selectedIndex=fys.findIndex(y=>y===selectedFYKey);
   if(selectedIndex<0){const sample=[...new Set(allCalendar.map(x=>JSON.stringify(x.fiscal_year)))].slice(0,12);throw new Error("Selected FY '"+selectedFYKey+"' was not found. Calendar rows loaded: "+allCalendar.length+". Fiscal years returned: "+sample.join(", "));}
   const years=fys.slice(selectedIndex,selectedIndex+5);
