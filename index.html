@@ -644,7 +644,7 @@ function renderImportTaxAnalysis(a){
 let intelBriefText="";
 function renderGrowthDecomposition(result,rootId,buttonId,fileName,label){
  const root=$(rootId);if(!root)return;
- const rows=(result?.categories||[]).map(x=>({category:x.category,change:Number(x.change||0),current:Number(x.current||0),prior:Number(x.prior||0),growth:x.growth})).filter(x=>Number.isFinite(x.change)).sort((a,b)=>Math.abs(b.change)-Math.abs(a.change)).slice(0,8);
+ const rows=(result?.categories||[]).map(x=>({category:x.category,change:Number(x.change||0),current:Number(x.current||0),prior:Number(x.prior||0),growth:x.growth})).filter(x=>Number.isFinite(x.change)).sort((a,b)=>Math.abs(b.change)-Math.abs(a.change)).slice(0,5);
  if(!rows.length){root.textContent="No "+label+" contribution data available for this comparable period.";return}
  const max=Math.max(1,...rows.map(x=>Math.abs(x.change)));
  root.innerHTML=rows.map(x=>'<div class="decomp-row"><div class="decomp-label"><strong>'+esc(x.category)+'</strong><span>'+signedMoney(x.change)+'</span></div><div class="decomp-track"><div class="decomp-fill '+(x.change<0?'negative':'')+'" style="width:'+Math.max(1,Math.abs(x.change)/max*100)+'%"></div></div></div>').join("");
