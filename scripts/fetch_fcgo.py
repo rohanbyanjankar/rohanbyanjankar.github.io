@@ -28,7 +28,7 @@ def number(value):
 def extract(html):
     soup = BeautifulSoup(html, "html.parser")
     text = " ".join(soup.stripped_strings)
-    date_match = re.search(r"As of\\s+(\\d{4}-\\d{2}-\\d{2})\\s*\\((\\d{4}-\\d{2}-\\d{2})\\)", text, re.I)
+    date_match = re.search(r"As of\s+(\d{4}-\d{2}-\d{2})\s*\((\d{4}-\d{2}-\d{2})\)", text, re.I)
     if not date_match:
         raise ValueError("Could not identify the FCGO reporting date in 'As of BS (AD)' format.")
 
@@ -47,10 +47,10 @@ def extract(html):
         cells = [c.get_text(" ", strip=True) for c in row.find_all(["th", "td"])]
         if not cells:
             continue
-        label_text = " ".join(cells[:2]).lower().replace("\\xa0", " ")
+        label_text = " ".join(cells[:2]).lower().replace("\xa0", " ")
         if "tax revenue" in label_text:
             key = "tax_revenue"
-        elif re.search(r"(^|\\s)revenue(\\s|$)", label_text) and "non tax" not in label_text and "tax revenue" not in label_text:
+        elif re.search(r"(^|\s)revenue(\s|$)", label_text) and "non tax" not in label_text and "tax revenue" not in label_text:
             key = "total_revenue"
         else:
             continue
@@ -87,7 +87,7 @@ def main():
     print(json.dumps(result, ensure_ascii=False, indent=2))
     if "--write" in sys.argv:
         OUT.parent.mkdir(parents=True, exist_ok=True)
-        OUT.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+        OUT.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 if __name__ == "__main__":
     main()
