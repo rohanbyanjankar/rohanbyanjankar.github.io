@@ -145,7 +145,20 @@ async function refreshExecutiveComparison(){
   if(selectedIndex<0)throw new Error("The selected fiscal year was not found in the fiscal calendar.");
   const years=fys.slice(selectedIndex,selectedIndex+5);
   if(!years.length)throw new Error("No fiscal calendar years found.");
-  const cal=allCalendar.filter(x=>years.includes(x.fiscal_year)&&(!manualCutoff||x.gregorian_date<=manualCutoff));
+  const selectedYearCalendar=allCalendar.filter(x=>x.fiscal_year===selectedFy).sort((a,b)=>a.gregorian_date.localeCompare(b.gregorian_date));
+  if(!selectedYearCalendar.length)throw new Error("No calendar dates found for the selected fiscal year.");
+  let cutoffDate=manualCutoff;
+  if(!cutoffDate){
+   const first=selectedYearCalendar[0].gregorian_date,last=selectedYearCalendar[selectedYearCalendar.length-1].gregorian_date;
+   const {data:latestRows,error:latestError}=await db.from("revenue_daily").select("collection_date").gte("collection_date",first).lte("collection_date",last).order("collection_date",{ascending:false}).limit(1);
+   if(latestError)throw latestError;
+   cutoffDate=latestRows?.[0]?.collection_date||null;
+  }
+  if(!cutoffDate)throw new Error("No revenue observations found in the selected fiscal year.");
+  const cutoffCalendar=selectedYearCalendar.filter(x=>x.gregorian_date<=cutoffDate).sort((a,b)=>b.gregorian_date.localeCompare(a.gregorian_date))[0];
+  if(!cutoffCalendar)throw new Error("The selected cutoff date is before the selected fiscal year.");
+  const cutoffFiscalDay=Number(cutoffCalendar.fiscal_day);
+  const cal=allCalendar.filter(x=>years.includes(x.fiscal_year)&&Number(x.fiscal_day)<=cutoffFiscalDay);
   const dateToFy=new Map(cal.map(x=>[x.gregorian_date,x.fiscal_year]));
   const dates=cal.map(x=>x.gregorian_date).sort();
   if(!dates.length)throw new Error("No calendar dates available for the selected years and cutoff.");
@@ -190,7 +203,7 @@ async function refreshExecutiveComparison(){
    return '<tr class="'+(row.kind==="child"?"exec-child":row.kind==="total"?"exec-total":"exec-parent")+'"><td>'+(row.kind==="child"?'<span class="exec-indent">↳ </span>':"")+esc(row.name)+"</td>"+cells+"</tr>";
   }).join("")||'<tr><td class="empty">No classified revenue observations.</td></tr>';
   const sub=document.querySelector("#page-overview .executive-card .sub");
-  if(sub)sub.textContent="Tax revenue is shown first with VAT, Income Tax, Excise and Customs. Other Classification 2 headings are shown with optional Classification 1 detail · "+(manualCutoff?"Common cutoff: "+manualCutoff:"Full fiscal years / latest available fiscal calendar");
+  if(sub)sub.textContent="Tax revenue is shown first with VAT, Income Tax, Excise and Customs. Other Classification 2 headings are shown with optional Classification 1 detail · Comparable through fiscal day "+cutoffFiscalDay+" ("+cutoffDate+") in each year.";
  }catch(e){console.error("Executive comparison failed:",e);body.innerHTML='<tr><td colspan="7" class="empty">Classification-based comparison could not be loaded: '+esc(e.message||String(e))+'</td></tr>'}
 }
 async function loadHeatmapFromTables(fy,month){
