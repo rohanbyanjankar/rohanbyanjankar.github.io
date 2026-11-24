@@ -69,6 +69,18 @@ begin
     where c.fiscal_year in (p_fiscal_year, v_previous_fy)
       and coalesce(rule.action, 'classify') <> 'omit'
   ),
+  fiscal_days as (
+    select c.fiscal_year, c.fiscal_day
+    from public.fiscal_calendar c
+    where c.fiscal_year in (p_fiscal_year, v_previous_fy)
+  ),
+  categories(category, sort_order) as (
+    values
+      ('VAT', 1),
+      ('Income Tax', 2),
+      ('Customs', 3),
+      ('Excise', 4)
+  ),
   daily_totals as (
     select
       fiscal_year,
@@ -76,6 +88,16 @@ begin
       sum(amount)::numeric as amount
     from classified_rows
     group by fiscal_year, fiscal_day
+  ),
+  daily_totals_dense as (
+    select
+      fd.fiscal_year,
+      fd.fiscal_day,
+      coalesce(dt.amount, 0)::numeric as amount
+    from fiscal_days fd
+    left join daily_totals dt
+      on dt.fiscal_year = fd.fiscal_year
+     and dt.fiscal_day = fd.fiscal_day
   ),
   daily_totals_cumulative as (
     select
@@ -87,7 +109,7 @@ begin
         order by fiscal_day
         rows between unbounded preceding and current row
       )::numeric as cumulative_amount
-    from daily_totals
+    from daily_totals_dense
   ),
   daily_categories as (
     select
@@ -98,6 +120,19 @@ begin
     from classified_rows
     where category is not null
     group by fiscal_year, fiscal_day, category
+  ),
+  daily_categories_dense as (
+    select
+      fd.fiscal_year,
+      fd.fiscal_day,
+      cat.category,
+      coalesce(dc.amount, 0)::numeric as amount
+    from fiscal_days fd
+    cross join categories cat
+    left join daily_categories dc
+      on dc.fiscal_year = fd.fiscal_year
+     and dc.fiscal_day = fd.fiscal_day
+     and dc.category = cat.category
   ),
   daily_categories_cumulative as (
     select
@@ -110,14 +145,7 @@ begin
         order by fiscal_day
         rows between unbounded preceding and current row
       )::numeric as cumulative_amount
-    from daily_categories
-  ),
-  categories(category, sort_order) as (
-    values
-      ('VAT', 1),
-      ('Income Tax', 2),
-      ('Customs', 3),
-      ('Excise', 4)
+    from daily_categories_dense
   ),
   day_values as (
     select
