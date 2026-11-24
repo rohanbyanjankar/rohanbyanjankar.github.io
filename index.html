@@ -53,6 +53,7 @@
  <div class="card kpi"><div class="kpi-label">Negative adjustments</div><div class="kpi-value" id="intelAdjustments">—</div><div class="kpi-foot" id="intelAdjustmentShare">Share of gross positive collections</div></div>
  <div class="card kpi"><div class="kpi-label">Top five revenue-head share</div><div class="kpi-value" id="intelTop5">—</div><div class="kpi-foot" id="intelTop10">Top ten share: —</div></div>
 </div>
+<div class="card" style="margin-top:14px"><div class="card-head"><div><div class="eyebrow">REVENUE CONCENTRATION</div><h3>Herfindahl-Hirschman Index (HHI)</h3><div class="sub">Concentration across active, non-omitted revenue heads, using positive gross collections through the same fiscal day.</div></div><span class="pill" id="intelHhiStatus">Calculating</span></div><div class="grid kpis"><div class="card kpi"><div class="kpi-label">Current HHI</div><div class="kpi-value" id="intelHhiCurrent">—</div><div class="kpi-foot" id="intelHhiCurrentFY">Selected fiscal year</div></div><div class="card kpi"><div class="kpi-label">Previous comparable HHI</div><div class="kpi-value" id="intelHhiPrior">—</div><div class="kpi-foot" id="intelHhiPriorFY">Previous fiscal year</div></div><div class="card kpi"><div class="kpi-label">Change in HHI</div><div class="kpi-value" id="intelHhiChange">—</div><div class="kpi-foot">Index points, current minus previous</div></div><div class="card kpi"><div class="kpi-label">Effective number of heads</div><div class="kpi-value" id="intelHhiEffective">—</div><div class="kpi-foot" id="intelHhiLargest">Largest head share: —</div></div></div><div id="intelHhiInterpretation" class="sub" style="margin-top:10px">HHI interpretation will appear here.</div></div>
 <div class="card" style="margin-top:14px;border-top:3px solid var(--gold)">
  <div class="card-head"><div><div class="eyebrow">IMPORT-DEPENDENT TAX REVENUE</div><h3>How exposed is revenue to imports?</h3><div class="sub">VAT, excise and customs collections identified from revenue descriptions containing the Nepali keyword “आयात”.</div></div><span class="pill" id="intelImportCoverage">Keyword matched</span></div>
  <div class="grid kpis">
@@ -575,11 +576,12 @@ async function refreshIntelligence(){
  const fy=$("intelFy").value||activeFY||$("fySelect").value||null;if(!fy)return;
  const b=$("intelRefresh");setBusy(b,true);
  try{
-  const [{data,error},{data:importData,error:importError},{data:taxShareData,error:taxShareError}]=await Promise.all([db.rpc("get_revenue_policy_intelligence",{p_fiscal_year:fy}),db.rpc("get_import_linked_tax_analysis",{p_fiscal_year:fy}),db.rpc("get_major_tax_head_contributions",{p_fiscal_year:fy})]);
+  const [{data,error},{data:importData,error:importError},{data:taxShareData,error:taxShareError},{data:hhiData,error:hhiError}]=await Promise.all([db.rpc("get_revenue_policy_intelligence",{p_fiscal_year:fy}),db.rpc("get_import_linked_tax_analysis",{p_fiscal_year:fy}),db.rpc("get_major_tax_head_contributions",{p_fiscal_year:fy}),db.rpc("get_revenue_concentration_hhi",{p_fiscal_year:fy})]);
   if(error)throw error;
   if(!data?.ready)throw new Error(data?.message||"No comparable fiscal data available.");
   data.import_analysis=importError?null:importData;
   data.major_tax_contributions=taxShareError?null:taxShareData;
+  data.hhi=hhiError?null:hhiData;
   intelData=data;
   renderPolicyIntelligence(data);
   $("intelSubtitle").textContent="FY "+data.fiscal_year+" versus "+data.previous_fiscal_year+" · matched through fiscal day "+data.cutoff_day+".";
@@ -663,8 +665,25 @@ function renderIntelBrief(d,m){
  const copy=$("copyIntelBrief");if(copy&&!copy.dataset.bound){copy.dataset.bound="1";copy.onclick=async()=>{try{await navigator.clipboard.writeText(intelBriefText);toast("Brief copied.")}catch(e){toast("Clipboard access is unavailable.")}}}
  const download=$("downloadIntelBrief");if(download&&!download.dataset.bound){download.dataset.bound="1";download.onclick=()=>{const blob=new Blob([intelBriefText],{type:"text/plain;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="fiscal_intelligence_brief.txt";a.click();URL.revokeObjectURL(url)}}
 }
+function renderRevenueHHI(h,d){
+ const put=(id,value)=>{const el=$(id);if(el)el.textContent=value};
+ if(!h?.ready){put("intelHhiStatus","Unavailable");put("intelHhiInterpretation",h?.message||"HHI data are unavailable. Apply the HHI database migration.");return}
+ const cur=Number(h.current_hhi),prior=Number(h.prior_hhi),delta=cur-prior;
+ put("intelHhiCurrent",Number.isFinite(cur)?cur.toFixed(0):"—");
+ put("intelHhiPrior",Number.isFinite(prior)?prior.toFixed(0):"—");
+ put("intelHhiChange",Number.isFinite(delta)?(delta>0?"+":"")+delta.toFixed(0):"—");
+ put("intelHhiEffective",h.current_effective_heads==null?"—":Number(h.current_effective_heads).toFixed(1));
+ put("intelHhiCurrentFY",h.fiscal_year+" · 0–10,000 scale");
+ put("intelHhiPriorFY",h.previous_fiscal_year+" · matched fiscal day "+h.cutoff_day);
+ put("intelHhiLargest","Largest revenue head: "+(h.current_largest_head_share==null?"—":Number(h.current_largest_head_share).toFixed(1)+"%"));
+ put("intelHhiStatus",delta>0?"More concentrated":delta<0?"Less concentrated":"No change");
+ const level=x=>x<1500?"Relatively diversified":x<2500?"Moderate concentration":"High concentration";
+ put("intelHhiInterpretation","Current structure: "+level(cur)+". Previous comparable structure: "+(Number.isFinite(prior)?level(prior):"not available")+". HHI is calculated as the sum of squared percentage shares of positive collections across distinct non-omitted revenue heads. A higher value indicates greater concentration. The effective number of heads is 10,000 divided by HHI.");
+}
 function renderPolicyIntelligence(d){
  renderImportTaxAnalysis(d.import_analysis);
+ renderRevenueHHI(d.hhi,d);
+
  renderMajorTaxContributions(d.major_tax_contributions);
  const current=Number(d.current_net||0),prior=Number(d.prior_net||0),change=current-prior;
  const growth=prior!==0?(change/prior*100):null;
