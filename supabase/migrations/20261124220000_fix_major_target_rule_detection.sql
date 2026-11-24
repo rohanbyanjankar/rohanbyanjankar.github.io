@@ -49,6 +49,7 @@ begin
     return jsonb_build_object(
       'fiscal_year', v_fy,
       'cutoff_day', null,
+      'active_rule_count', v_active_rule_count,
       'headings', '[]'::jsonb
     );
   end if;
