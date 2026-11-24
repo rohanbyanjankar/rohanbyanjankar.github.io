@@ -376,12 +376,13 @@ function renderDayDetail(d){
  const fallback=!!heatPulse?.fallback;
  $("dayTotal").textContent=dayUnitValue(fallback?d.amount:d.cumulative_amount);
  $("dayTotalGrowth").textContent=fallback?"Daily YoY: unavailable":"Cumulative YoY: "+pct(d.cumulative_yoy_growth);
- const major=["VAT","Income Tax","Customs","Excise"];
- const categoryMap=new Map((d.cumulative_categories||[]).map(x=>[String(x.name).toLowerCase(),x]));
+ const major=["VAT","Income Tax","Customs duty","Excise"];
+ const categoryMap=new Map((d.cumulative_categories||[]).map(x=>[String(x.name).trim().toLowerCase().replace(/\\s+/g," "),x]));
+ const categoryAliases={"VAT":["vat","value added tax"],"Income Tax":["income tax","income-tax"],"Customs duty":["customs","customs duty","custom duty"],"Excise":["excise","excise duty"]};
  $("dayCategoryRows").innerHTML=fallback
   ?'<tr><td colspan="3" class="empty">Category-level cumulative comparisons are temporarily unavailable.</td></tr>'
   :major.map(name=>{
-   const x=categoryMap.get(name.toLowerCase());
+   const x=(categoryAliases[name]||[name.toLowerCase()]).map(k=>categoryMap.get(k)).find(Boolean);
    return '<tr><td>'+name+'</td><td class="right">'+dayUnitValue(x?.amount||0)+'</td><td class="right">'+pct(x?.cumulative_yoy_growth)+'</td></tr>';
   }).join("");
  const label=document.querySelector("#dayDetailModal .day-kpis .kpi-label");
