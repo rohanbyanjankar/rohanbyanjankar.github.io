@@ -677,8 +677,7 @@ function renderRevenueHHI(h,d){
  put("intelHhiPriorFY",h.previous_fiscal_year+" · matched fiscal day "+h.cutoff_day);
  put("intelHhiLargest","Largest revenue head: "+(h.current_largest_head_share==null?"—":Number(h.current_largest_head_share).toFixed(1)+"%"));
  put("intelHhiStatus",delta>0?"More concentrated":delta<0?"Less concentrated":"No change");
- const level=x=>x<1500?"Relatively diversified":x<2500?"Moderate concentration":"High concentration";
- put("intelHhiInterpretation","Current structure: "+level(cur)+". Previous comparable structure: "+(Number.isFinite(prior)?level(prior):"not available")+". HHI is calculated as the sum of squared percentage shares of positive collections across distinct non-omitted revenue heads. A higher value indicates greater concentration. The effective number of heads is 10,000 divided by HHI.");
+ put("intelHhiInterpretation","HHI is the sum of squared percentage shares of positive collections across distinct non-omitted revenue heads. A higher value indicates greater concentration. The effective number of equally sized heads is 10,000 divided by HHI. The index is presented as a descriptive fiscal concentration measure; competition-policy thresholds should not be applied mechanically to government revenue.");
 }
 function renderPolicyIntelligence(d){
  renderImportTaxAnalysis(d.import_analysis);
