@@ -144,7 +144,8 @@ async function refreshExecutiveComparison(){
   const {data,error}=await request;
   if(error)throw error;
   const years=data?.years||[];
-  const rows=[
+  const activeRules=(rules||[]).filter(r=>r.is_active&&r.action!=="omit");
+  const rows=activeRules.length?[
    {name:"Tax revenue",key:"tax_revenue",kind:"parent"},
    {name:"VAT",key:"vat",kind:"child"},
    {name:"Excise",key:"excise",kind:"child"},
@@ -154,6 +155,11 @@ async function refreshExecutiveComparison(){
    {name:"Non-tax revenue",key:"non_tax_revenue",kind:"parent"},
    {name:"Interest and dividends",key:"interest_dividends",kind:"child"},
    {name:"Royalty",key:"royalty",kind:"child"}
+  ]:[
+   {name:"Tax revenue",key:"tax_revenue",kind:"parent"},
+   {name:"Unclassified",key:"tax_revenue",kind:"child"},
+   {name:"Non-tax revenue",key:"non_tax_revenue",kind:"parent"},
+   {name:"Unclassified",key:"non_tax_revenue",kind:"child"}
   ];
   $("execCompareHead").innerHTML="<tr><th>Revenue heading</th>"+years.map(x=>'<th class="right">'+esc(x.fiscal_year)+(metric==="growth"?" · YoY":"")+"</th>").join("")+"</tr>";
   $("execCompareRows").innerHTML=rows.map(row=>{
@@ -261,6 +267,8 @@ let majorTargetRequest=0;
 async function refreshMajorTargetAchievement(){
  const root=$("majorTargetAchievement");if(!root)return;
  const requestId=++majorTargetRequest,fy=$("fySelect").value||activeFY;
+ const activeRules=(rules||[]).filter(r=>r.is_active&&r.action!=="omit");
+ if(!activeRules.length){root.innerHTML='<div class="major-target-empty">No active classification rules. Add classification rules to display target achievement by revenue heading.</div>';$("majorTargetNote").textContent="Target achievement by major revenue heading requires active classification rules.";return;}
  root.innerHTML='<div class="major-target-empty">Calculating target achievement…</div>';
  if(!fy){root.innerHTML='<div class="major-target-empty">Select a fiscal year.</div>';return}
  try{
