@@ -9,7 +9,8 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
-URL = "https://old.fcgo.gov.np/daily-budgetary-analysis"
+URL = "https://dailybudgetary.fcgo.gov.np/"
+LEGACY_URL = "https://old.fcgo.gov.np/daily-budgetary-analysis"
 OUT = Path("data/fcgo-latest.json")
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; RevenueIntelligence/1.0)"}
 
@@ -27,7 +28,7 @@ def number(value):
     except ValueError:
         return None
 
-def extract(html):
+def extract(html, source_url=URL):
     soup = BeautifulSoup(html, "html.parser")
     text = " ".join(soup.stripped_strings)
     date_match = re.search(r"As of\s+(\d{4}-\d{2}-\d{2})\s*\((\d{4}-\d{2}-\d{2})\)", text, re.I)
@@ -73,7 +74,7 @@ def extract(html):
         raise ValueError("Missing required FCGO rows: " + ", ".join(sorted(required - set(found))))
 
     return {
-        "source": URL,
+        "source": source_url,
         "reporting_date_bs": date_match.group(1),
         "reporting_date_ad": date_match.group(2),
         "unit": "Lakh NPR",
@@ -82,10 +83,44 @@ def extract(html):
     }
 
 def main():
-    response = requests.get(URL, headers=HEADERS, timeout=45)
+    session = requests.Session()
+    session.headers.update(HEADERS)
+    response = session.get(URL, timeout=45)
     response.raise_for_status()
     response.encoding = response.apparent_encoding or response.encoding
-    result = extract(response.text)
+
+    # First try the current FCGO portal directly. If it embeds the report,
+    # follow the report iframe. Keep the legacy report as a last-resort fallback.
+    candidates = [(response.url, response.text)]
+    portal = BeautifulSoup(response.text, "html.parser")
+    for frame in portal.find_all("iframe", src=True):
+        from urllib.parse import urljoin
+        frame_url = urljoin(response.url, frame["src"])
+        if "fcgo.gov.np" in frame_url:
+            frame_response = session.get(frame_url, timeout=45)
+            frame_response.raise_for_status()
+            frame_response.encoding = frame_response.apparent_encoding or frame_response.encoding
+            candidates.append((frame_response.url, frame_response.text))
+
+    if not any("old.fcgo.gov.np" in url for url, _ in candidates):
+        try:
+            legacy = session.get(LEGACY_URL, timeout=30)
+            legacy.raise_for_status()
+            legacy.encoding = legacy.apparent_encoding or legacy.encoding
+            candidates.append((legacy.url, legacy.text))
+        except requests.RequestException as exc:
+            print(f"Legacy fallback unavailable: {exc}", file=sys.stderr)
+
+    last_error = None
+    result = None
+    for source_url, html in candidates:
+        try:
+            result = extract(html, source_url=source_url)
+            break
+        except ValueError as exc:
+            last_error = exc
+    if result is None:
+        raise RuntimeError(f"Could not extract the daily report from the current FCGO portal or its report frame. Last parser error: {last_error}")
     print(json.dumps(result, ensure_ascii=False, indent=2))
     if "--write" in sys.argv:
         OUT.parent.mkdir(parents=True, exist_ok=True)
