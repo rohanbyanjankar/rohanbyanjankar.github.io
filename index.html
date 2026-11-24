@@ -53,7 +53,7 @@
  <div class="card kpi"><div class="kpi-label">Negative adjustments</div><div class="kpi-value" id="intelAdjustments">—</div><div class="kpi-foot" id="intelAdjustmentShare">Share of gross positive collections</div></div>
  <div class="card kpi"><div class="kpi-label">Top five revenue-head share</div><div class="kpi-value" id="intelTop5">—</div><div class="kpi-foot" id="intelTop10">Top ten share: —</div></div>
 </div>
-<div class="card" style="margin-top:14px"><div class="card-head"><div><div class="eyebrow">REVENUE CONCENTRATION</div><h3>Herfindahl-Hirschman Index (HHI)</h3><div class="sub">Concentration across Classification 1 categories, using positive gross collections through the same fiscal day.</div></div><span class="pill" id="intelHhiStatus">Calculating</span></div><div class="grid kpis"><div class="card kpi"><div class="kpi-label">Current HHI</div><div class="kpi-value" id="intelHhiCurrent">—</div><div class="kpi-foot" id="intelHhiCurrentFY">Selected fiscal year</div></div><div class="card kpi"><div class="kpi-label">Previous comparable HHI</div><div class="kpi-value" id="intelHhiPrior">—</div><div class="kpi-foot" id="intelHhiPriorFY">Previous fiscal year</div></div><div class="card kpi"><div class="kpi-label">Change in HHI</div><div class="kpi-value" id="intelHhiChange">—</div><div class="kpi-foot">Index points, current minus previous</div></div><div class="card kpi"><div class="kpi-label">Effective number of Class 1 categories</div><div class="kpi-value" id="intelHhiEffective">—</div><div class="kpi-foot" id="intelHhiLargest">Largest head share: —</div></div></div><div id="intelHhiInterpretation" class="sub" style="margin-top:10px">HHI interpretation will appear here.</div></div>
+<div class="card" style="margin-top:14px"><div class="card-head"><div><div class="eyebrow">REVENUE CONCENTRATION</div><h3>Herfindahl-Hirschman Index (HHI)</h3><div class="sub">Concentration across Classification 1 categories, using positive gross collections through the same fiscal day.</div></div><span class="pill" id="intelHhiStatus">Calculating</span></div><div class="grid kpis"><div class="card kpi"><div class="kpi-label">Current HHI</div><div class="kpi-value" id="intelHhiCurrent">—</div><div class="kpi-foot" id="intelHhiCurrentFY">Selected fiscal year</div></div><div class="card kpi"><div class="kpi-label">Previous comparable HHI</div><div class="kpi-value" id="intelHhiPrior">—</div><div class="kpi-foot" id="intelHhiPriorFY">Previous fiscal year</div></div><div class="card kpi"><div class="kpi-label">Change in HHI</div><div class="kpi-value" id="intelHhiChange">—</div><div class="kpi-foot">Index points, current minus previous</div></div><div class="card kpi"><div class="kpi-label">Effective number of Class 1 categories</div><div class="kpi-value" id="intelHhiEffective">—</div><div class="kpi-foot" id="intelHhiLargest">Largest head share: —</div></div></div><div id="intelHhiInterpretation" class="sub" style="margin-top:10px">HHI interpretation will appear here.</div><div style="margin-top:18px"><div class="card-head"><div><h3>Eight-year revenue concentration trend</h3><div class="sub" id="intelHhiTrendNote">Fiscal-year HHI across Classification 1 categories, matched at the same fiscal-day cutoff.</div></div><button class="btn ghost" id="exportHhiHistory">Export HHI data</button></div><div class="chart" style="height:310px"><canvas id="intelHhiTrendChart" aria-label="Eight-year HHI trend chart"></canvas></div></div></div>
 <div class="card" style="margin-top:14px;border-top:3px solid var(--gold)">
  <div class="card-head"><div><div class="eyebrow">IMPORT-DEPENDENT TAX REVENUE</div><h3>How exposed is revenue to imports?</h3><div class="sub">VAT, excise and customs collections identified from revenue descriptions containing the Nepali keyword “आयात”.</div></div><span class="pill" id="intelImportCoverage">Keyword matched</span></div>
  <div class="grid kpis">
@@ -576,12 +576,13 @@ async function refreshIntelligence(){
  const fy=$("intelFy").value||activeFY||$("fySelect").value||null;if(!fy)return;
  const b=$("intelRefresh");setBusy(b,true);
  try{
-  const [{data,error},{data:importData,error:importError},{data:taxShareData,error:taxShareError},{data:hhiData,error:hhiError}]=await Promise.all([db.rpc("get_revenue_policy_intelligence",{p_fiscal_year:fy}),db.rpc("get_import_linked_tax_analysis",{p_fiscal_year:fy}),db.rpc("get_major_tax_head_contributions",{p_fiscal_year:fy}),db.rpc("get_revenue_concentration_hhi",{p_fiscal_year:fy})]);
+  const [{data,error},{data:importData,error:importError},{data:taxShareData,error:taxShareError},{data:hhiData,error:hhiError},{data:hhiHistoryData,error:hhiHistoryError}]=await Promise.all([db.rpc("get_revenue_policy_intelligence",{p_fiscal_year:fy}),db.rpc("get_import_linked_tax_analysis",{p_fiscal_year:fy}),db.rpc("get_major_tax_head_contributions",{p_fiscal_year:fy}),db.rpc("get_revenue_concentration_hhi",{p_fiscal_year:fy}),db.rpc("get_revenue_concentration_hhi_history",{p_fiscal_year:fy,p_years:8})]);
   if(error)throw error;
   if(!data?.ready)throw new Error(data?.message||"No comparable fiscal data available.");
   data.import_analysis=importError?null:importData;
   data.major_tax_contributions=taxShareError?null:taxShareData;
   data.hhi=hhiError?null:hhiData;
+  data.hhi_history=hhiHistoryError?null:hhiHistoryData;
   intelData=data;
   renderPolicyIntelligence(data);
   $("intelSubtitle").textContent="FY "+data.fiscal_year+" versus "+data.previous_fiscal_year+" · matched through fiscal day "+data.cutoff_day+".";
@@ -679,9 +680,25 @@ function renderRevenueHHI(h,d){
  put("intelHhiStatus",delta>0?"More concentrated":delta<0?"Less concentrated":"No change");
  put("intelHhiInterpretation","HHI is the sum of squared percentage shares of positive collections across Classification 1 categories. Classification 2 is not used. A higher value indicates greater concentration. The effective number of equally sized heads is 10,000 divided by HHI. The index is presented as a descriptive fiscal concentration measure; competition-policy thresholds should not be applied mechanically to government revenue.");
 }
+let intelHhiTrendChart=null;
+function renderRevenueHHIHistory(result){
+ const canvas=$("intelHhiTrendChart"),note=$("intelHhiTrendNote");
+ if(!canvas)return;
+ if(intelHhiTrendChart){intelHhiTrendChart.destroy();intelHhiTrendChart=null;}
+ const rows=(result?.years||[]).filter(x=>x.hhi!==null&&x.hhi!==undefined);
+ if(!result?.ready||!rows.length){
+  if(note)note.textContent=result?.message||"Eight-year HHI history is unavailable. Apply the latest HHI history migration.";
+  return;
+ }
+ if(note)note.textContent="Up to "+result.window_years+" fiscal years · same fiscal-day cutoff ("+result.cutoff_day+") in every year · Classification 1 · 0–10,000 scale.";
+ intelHhiTrendChart=new Chart(canvas,{type:"line",data:{labels:rows.map(x=>x.fiscal_year),datasets:[{label:"HHI",data:rows.map(x=>Number(x.hhi)),borderColor:"#17345b",backgroundColor:"rgba(23,52,91,.10)",borderWidth:3,tension:.25,fill:true,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:"#c5a15c"}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>"HHI: "+Number(ctx.parsed.y).toFixed(2)}}},scales:{y:{beginAtZero:true,title:{display:true,text:"HHI points"},ticks:{precision:0}},x:{title:{display:true,text:"Fiscal year"}}}}});
+ const exportButton=$("exportHhiHistory");
+ if(exportButton&&!exportButton.dataset.bound){exportButton.dataset.bound="1";exportButton.onclick=()=>exportCsv("revenue_hhi_eight_years.csv",rows.map(x=>({fiscal_year:x.fiscal_year,hhi:x.hhi,effective_categories:x.effective_categories,active_categories:x.active_categories,largest_category_share:x.largest_category_share,total_positive_collections:x.total_positive,cutoff_day:result.cutoff_day,classification_level:"Classification 1"})));}
+}
 function renderPolicyIntelligence(d){
  renderImportTaxAnalysis(d.import_analysis);
  renderRevenueHHI(d.hhi,d);
+ renderRevenueHHIHistory(d.hhi_history);
 
  renderMajorTaxContributions(d.major_tax_contributions);
  const current=Number(d.current_net||0),prior=Number(d.prior_net||0),change=current-prior;
