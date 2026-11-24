@@ -69,6 +69,7 @@ begin
     left join lateral (
       select
         rr.classification,
+        rr.classification1,
         rr.classification2,
         rr.action
       from public.revenue_classification_rules rr
