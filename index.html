@@ -430,10 +430,10 @@ function createExportWorker(){
  return {worker,url};
 }
 async function downloadRawRevenue(mode){
- window.__revenueSuppressGlobalLoader=true;if($("globalDbLoading"))$("globalDbLoading").classList.remove("visible");
  const from=mode==="period"?$("rawDateFrom").value:"",to=mode==="period"?$("rawDateTo").value:"";
  if(mode==="period"&&!from&&!to)return toast("Choose at least one date to define the selected period.");
  if(from&&to&&from>to)return toast("Start date must not be later than end date.");
+ window.__revenueSuppressGlobalLoader=true;if($("globalDbLoading"))$("globalDbLoading").classList.remove("visible");
  const format=$("rawExportFormat").value||"csv",buttons=[$("downloadRawAll"),$("downloadRawPeriod")],status=$("rawDownloadStatus"),progress=$("rawDownloadProgress");
  buttons.forEach(b=>b.disabled=true);progress.style.width="0%";status.textContent="Starting background download…";
  updateBackgroundTask("Preparing raw data download","Connecting to the database…",0,true);
