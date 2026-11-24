@@ -393,6 +393,26 @@ async function refreshAnalytics(){
   $("analyticsAsOf").textContent="Based on available fiscal data";$("analyticsDataDate").textContent="Loading…";$("analyticsDataDateGregorian").textContent="Checking latest observation";
   const intelResult=await db.rpc("get_revenue_intelligence",{p_fiscal_year:fy});
   analyticsIntelData=intelResult.error?null:intelResult.data;
+  // Build both analytics selectors from the active two-level classification taxonomy.
+  const taxonomyResult=await db.rpc("get_revenue_classification_breakdown",{p_fiscal_year:fy});
+  if(!taxonomyResult.error&&taxonomyResult.data?.ready){
+   const broad=(taxonomyResult.data.categories_classification2||[]).map(x=>String(x.category||"").trim()).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+   const detailed=(taxonomyResult.data.categories_classification1||[]).map(x=>String(x.category||"").trim()).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+   const buildCategoryOptions=(selectId)=>{
+    const el=$(selectId);if(!el)return;
+    const previous=el.value||"Total";
+    const options=['<option value="Total">Total revenue</option>'];
+    if(broad.length)options.push('<optgroup label="Classification 2 · Broad">'+broad.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join("")+'</optgroup>');
+    if(detailed.length)options.push('<optgroup label="Classification 1 · Detailed">'+detailed.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join("")+'</optgroup>');
+    el.innerHTML=options.join("");
+    if([...el.options].some(o=>o.value===previous))el.value=previous;
+    else el.value="Total";
+   };
+   buildCategoryOptions("analyticsMonthlyCategory");
+   buildCategoryOptions("analyticsCategory");
+  }else{
+   console.warn("Analytics category selectors could not load the classification taxonomy:",taxonomyResult.error?.message||taxonomyResult.data?.message);
+  }
   $("analyticsUnitLabel").textContent=($("analyticsUnit").value||"arba").toUpperCase();$("dailyUnitLabel").textContent=($("analyticsUnit").value||"arba").toUpperCase();
   const available=[...$("analyticsFy").options].map(o=>o.value).filter(Boolean),start=available.indexOf(fy),wanted=start<0?[fy]:available.slice(start),historyResults=await Promise.all(wanted.slice(1).map(async y=>({fy:y,result:await db.rpc("get_revenue_dashboard",{p_fiscal_year:y})})));
   const historical=historyResults.filter(x=>!x.result.error&&x.result.data),years=[fy,...historical.map(x=>x.fy)],results=[{data:d},...historical.map(x=>x.result)];
