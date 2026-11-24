@@ -62,8 +62,7 @@ begin
   from scope
   group by fiscal_year,classification1
  ), totals as (
-  select fiscal_year,sum(amount) total_positive,
-   sum(power(amount/nullif(sum(amount) over(partition by fiscal_year),0),2)) hhi_dummy
+  select fiscal_year,sum(amount) total_positive
   from by_category
   group by fiscal_year
  ), shares as (
