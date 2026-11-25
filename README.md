@@ -69,3 +69,10 @@ existing calendar rows.
 
 See [calendar engine documentation](calendar_engine/README.md) and
 [official calendar input schema](calendar_engine/data/official_calendar/README.md).
+
+
+## Complete technical documentation
+
+A structured documentation set is available in [`docs/`](docs/README.md). It covers the system architecture, repository inventory, database schema and migration considerations, operating procedures, FCGO integration, Nepali fiscal calendar, security, production acceptance tests and the proposed migration to Ministry of Finance infrastructure.
+
+**For the MoF migration:** start with [MoF Migration Plan](docs/MOF_MIGRATION.md), then review [Database Reference](docs/DATABASE.md), [System Architecture](docs/SYSTEM_ARCHITECTURE.md) and [Production Acceptance Checklist](docs/ACCEPTANCE_CHECKLIST.md).
