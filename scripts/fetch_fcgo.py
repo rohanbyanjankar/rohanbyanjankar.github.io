@@ -8,6 +8,8 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 API_URL = "https://dailybudgetary.fcgo.gov.np/api/report"
 OUT = Path("data/fcgo-latest.json")
@@ -16,6 +18,19 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible; RevenueIntelligence/1.0)",
     "Accept": "application/json",
 }
+
+# FCGO may respond slowly or have temporary connectivity interruptions.
+RETRY_POLICY = Retry(
+    total=5,
+    connect=5,
+    read=3,
+    backoff_factor=3,
+    status_forcelist=(429, 500, 502, 503, 504),
+    allowed_methods=("GET",),
+    raise_on_status=False,
+)
+SESSION = requests.Session()
+SESSION.mount("https://", HTTPAdapter(max_retries=RETRY_POLICY))
 
 
 def reporting_date():
@@ -96,7 +111,14 @@ def extract(payload, ad_date, source_url):
 def main():
     ad_date = reporting_date()
     url = f"{API_URL}?date={ad_date}"
-    response = requests.get(url, headers=HEADERS, timeout=(15, 45))
+    try:
+        response = SESSION.get(url, headers=HEADERS, timeout=(30, 60))
+    except requests.exceptions.RequestException as exc:
+        raise SystemExit(
+            "Unable to connect to the FCGO API after automatic retries. "
+            "This is a network/server reachability issue, not a calendar parsing error. "
+            f"Requested URL: {url}. Details: {exc}"
+        ) from exc
     response.raise_for_status()
     result = extract(response.json(), ad_date, url)
     print(json.dumps(result, ensure_ascii=False, indent=2))
